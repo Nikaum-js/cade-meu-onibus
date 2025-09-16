@@ -1,5 +1,6 @@
 import { API_CONFIG, ENDPOINTS } from '../constants/api';
 import { retry } from '../utils/api';
+import { getSimulatedBusData, isDemoLine, DEMO_LINES } from './demo-data';
 import type {
   OlhoVivoConfig,
   AuthResult,
@@ -95,6 +96,16 @@ export class SPTransAPI {
   }
 
   async fetchBusPositions(lineCode: string): Promise<BusPosition[]> {
+    // Check if it's a demo line or if we should use demo data
+    if (isDemoLine(lineCode) || this.config.token === 'YOUR_API_TOKEN_HERE') {
+      console.log(`🚌 Using demo data for line ${lineCode}`);
+
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
+
+      return getSimulatedBusData(lineCode);
+    }
+
     if (!this.authenticated) {
       const authResult = await this.authenticate();
       if (!authResult.success) {
@@ -133,6 +144,31 @@ export class SPTransAPI {
   }
 
   async fetchBusLines(searchTerm?: string): Promise<BusLine[]> {
+    // Use demo data if token is placeholder
+    if (this.config.token === 'YOUR_API_TOKEN_HERE') {
+      console.log(`🚌 Using demo lines data`);
+
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 500));
+
+      let filteredLines = DEMO_LINES;
+
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        filteredLines = DEMO_LINES.filter(line =>
+          line.code.toLowerCase().includes(searchLower) ||
+          line.name.toLowerCase().includes(searchLower)
+        );
+      }
+
+      return filteredLines.map(line => ({
+        code: line.code,
+        name: line.name,
+        direction: 'Ida/Volta',
+        active: true,
+      }));
+    }
+
     if (!this.authenticated) {
       const authResult = await this.authenticate();
       if (!authResult.success) {

@@ -38,11 +38,11 @@ export const useBusStore = create<BusStore>((set, get) => ({
   lastUpdate: null,
   refreshInterval: null,
   suggestions: [
-    { lineCode: '6824-10', lineName: 'Lapa - Pirituba', popular: true },
-    { lineCode: '701U-10', lineName: 'Terminal São Miguel - Metrô Tucuruvi', popular: true },
-    { lineCode: '2029-10', lineName: 'Capão Redondo - Metrô Giovanni Gronchi', popular: true },
-    { lineCode: '177A-10', lineName: 'Terminal Pirituba - Shopping Eldorado', popular: true },
-    { lineCode: '175R-10', lineName: 'Jardim Rincão - Terminal Pirituba', popular: true },
+    { lineCode: '6824-10', lineName: 'Lapa - Pirituba (DEMO)', popular: true },
+    { lineCode: '701U-10', lineName: 'Terminal São Miguel - Metrô Tucuruvi (DEMO)', popular: true },
+    { lineCode: '2029-10', lineName: 'Capão Redondo - Metrô Giovanni Gronchi (DEMO)', popular: true },
+    { lineCode: '177A-10', lineName: 'Terminal Pirituba - Shopping Eldorado (DEMO)', popular: true },
+    { lineCode: '175R-10', lineName: 'Jardim Rincão - Terminal Pirituba (DEMO)', popular: true },
   ],
 
   fetchBuses: async (lineCode: string) => {

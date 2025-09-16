@@ -1,24 +1,20 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, Alert, Dimensions, StatusBar, StyleSheet } from 'react-native';
-import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
+import React, { useEffect, useState } from 'react';
+import { View, Alert, Dimensions, StatusBar, StyleSheet, Text, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SearchBar } from '../components/ui/search-bar';
 import { LoadingSpinner } from '../components/ui/loading-spinner';
 import { ErrorMessage } from '../components/ui/error-message';
-import { BusMarker } from '../components/maps/bus-marker';
 
 import { useBusStore } from '../stores/bus-store';
 import { useLocationStore } from '../stores/location-store';
 import { useAppStore } from '../stores/app-store';
 
 import type { BusPosition } from '../types/bus';
-import type { MapRegion } from '../types';
 
 const { width, height } = Dimensions.get('window');
 
 export function MapScreen() {
-  const mapRef = useRef<MapView>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Store hooks
@@ -34,14 +30,11 @@ export function MapScreen() {
   } = useBusStore();
 
   const {
-    userLocation,
-    mapRegion,
     hasLocationPermission,
     isLocationLoading,
     locationError,
     requestLocationPermission,
     getCurrentLocation,
-    updateMapRegion,
   } = useLocationStore();
 
   const { isOffline } = useAppStore();
@@ -72,50 +65,9 @@ export function MapScreen() {
     try {
       await fetchBuses(lineCode);
       startAutoRefresh(lineCode);
-
-      // Center map on São Paulo if no user location
-      if (!userLocation) {
-        const spRegion = {
-          latitude: -23.5505,
-          longitude: -46.6333,
-          latitudeDelta: 0.0922,
-          longitudeDelta: 0.0421,
-        };
-        updateMapRegion(spRegion);
-        mapRef.current?.animateToRegion(spRegion, 1000);
-      }
     } catch (err) {
       console.error('Search failed:', err);
     }
-  };
-
-  const handleBusPress = (bus: BusPosition) => {
-    Alert.alert(
-      `Ônibus ${bus.lineCode}`,
-      `Status: ${getStatusLabel(bus.status)}\nÚltima atualização: ${bus.lastUpdate.toLocaleTimeString()}`,
-      [
-        {
-          text: 'Fechar',
-          style: 'cancel',
-        },
-        {
-          text: 'Centralizar no mapa',
-          onPress: () => {
-            const region = {
-              latitude: bus.latitude,
-              longitude: bus.longitude,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            };
-            mapRef.current?.animateToRegion(region, 1000);
-          },
-        },
-      ]
-    );
-  };
-
-  const handleMapPress = () => {
-    // Hide search suggestions when tapping on map
   };
 
   const handleRetry = () => {
@@ -137,14 +89,57 @@ export function MapScreen() {
     }
   };
 
-  const renderBusMarkers = () => {
-    return Array.from(buses.values()).map((bus) => (
-      <BusMarker
-        key={bus.id}
-        bus={bus}
-        onPress={handleBusPress}
-      />
-    ));
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'moving':
+        return '#059669'; // Green
+      case 'stopped':
+        return '#D97706'; // Orange
+      case 'offline':
+        return '#9CA3AF'; // Gray
+      default:
+        return '#9CA3AF';
+    }
+  };
+
+  const renderBusList = () => {
+    const busArray = Array.from(buses.values());
+
+    if (busArray.length === 0) {
+      return (
+        <View style={styles.emptyState}>
+          <Text style={styles.emptyStateText}>
+            🚌 Digite o código de uma linha para ver os ônibus
+          </Text>
+          <Text style={styles.emptyStateSubtext}>
+            Exemplo: 6824-10, 701U-10, 2029-10
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <ScrollView style={styles.busList} showsVerticalScrollIndicator={false}>
+        <Text style={styles.busListTitle}>
+          Linha {selectedLine} - {busArray.length} ônibus encontrados
+        </Text>
+        {busArray.map((bus) => (
+          <View key={bus.id} style={styles.busItem}>
+            <View style={[styles.statusIndicator, { backgroundColor: getStatusColor(bus.status) }]} />
+            <View style={styles.busInfo}>
+              <Text style={styles.busId}>Ônibus {bus.id.split('-')[0]}</Text>
+              <Text style={styles.busStatus}>{getStatusLabel(bus.status)}</Text>
+              <Text style={styles.busLocation}>
+                📍 {bus.latitude.toFixed(4)}, {bus.longitude.toFixed(4)}
+              </Text>
+              <Text style={styles.busTime}>
+                🕐 {bus.lastUpdate.toLocaleTimeString()}
+              </Text>
+            </View>
+          </View>
+        ))}
+      </ScrollView>
+    );
   };
 
   return (
@@ -159,26 +154,18 @@ export function MapScreen() {
         />
       </View>
 
-      {/* Map */}
-      <MapView
-        ref={mapRef}
-        style={styles.map}
-        provider={PROVIDER_GOOGLE}
-        initialRegion={mapRegion}
-        showsUserLocation={hasLocationPermission}
-        showsMyLocationButton={hasLocationPermission}
-        showsTraffic={false}
-        showsBuildings={true}
-        onPress={handleMapPress}
-        onRegionChangeComplete={updateMapRegion}
-        mapType="standard"
-        pitchEnabled={true}
-        rotateEnabled={true}
-        scrollEnabled={true}
-        zoomEnabled={true}
-      >
-        {renderBusMarkers()}
-      </MapView>
+      {/* Map Placeholder */}
+      <View style={styles.mapPlaceholder}>
+        <Text style={styles.mapPlaceholderTitle}>🗺️ Mapa de São Paulo</Text>
+        <Text style={styles.mapPlaceholderText}>
+          Para visualizar no mapa, configure o Google Maps API
+        </Text>
+        <Text style={styles.mapPlaceholderSubtext}>
+          Por enquanto, você pode ver a lista de ônibus abaixo
+        </Text>
+
+        {renderBusList()}
+      </View>
 
       {/* Loading Overlay */}
       {(isLoading || isLocationLoading) && (
@@ -224,15 +211,105 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   searchContainer: {
-    position: 'absolute',
-    top: StatusBar.currentHeight ? StatusBar.currentHeight + 16 : 50,
-    left: 16,
-    right: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
     zIndex: 1000,
   },
-  map: {
-    width,
-    height,
+  mapPlaceholder: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    margin: 16,
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+  },
+  mapPlaceholderTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 8,
+  },
+  mapPlaceholderText: {
+    fontSize: 16,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  mapPlaceholderSubtext: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    fontSize: 18,
+    color: '#1F2937',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  busList: {
+    width: '100%',
+    maxHeight: 400,
+  },
+  busListTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  busItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  statusIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 12,
+  },
+  busInfo: {
+    flex: 1,
+  },
+  busId: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 2,
+  },
+  busStatus: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 2,
+  },
+  busLocation: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginBottom: 2,
+  },
+  busTime: {
+    fontSize: 12,
+    color: '#9CA3AF',
   },
   errorContainer: {
     position: 'absolute',

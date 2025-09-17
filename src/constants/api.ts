@@ -1,6 +1,6 @@
 export const API_CONFIG = {
   BASE_URL: 'http://api.olhovivo.sptrans.com.br/v2.1',
-  TOKEN: '27b2832b3776bed3d4db8ab82c0e62d09182c2d8ebf142c48baded1ce78461f8', // Replace with actual token
+  TOKEN: '27b2832b3776bed3d4db8ab82c0e62d09182c2d8ebf142c48baded1ce78461f8',
   TIMEOUT: 10000,
   RETRY_ATTEMPTS: 3,
   REFRESH_INTERVAL: 30000, // 30 seconds

@@ -31,20 +31,36 @@ export class SPTransAPI {
     const url = `${this.config.baseURL}${endpoint}`;
 
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...options.headers as Record<string, string>,
+      };
+
+      // Add cookie header if authenticated
+      if (this.authCookie) {
+        headers['Cookie'] = this.authCookie;
+      }
+
       const response = await fetch(url, {
         ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.authCookie && { Cookie: this.authCookie }),
-          ...options.headers,
-        },
+        headers,
       });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      // Handle different response types
+      const contentType = response.headers.get('content-type');
+      let data: T;
+
+      if (contentType && contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        // For boolean responses like authentication
+        const text = await response.text();
+        data = (text === 'true') as unknown as T;
+      }
 
       return {
         success: true,
@@ -63,24 +79,44 @@ export class SPTransAPI {
 
   async authenticate(): Promise<AuthResult> {
     try {
-      await retry(async () => {
-        const response = await this.makeRequest<boolean>(
-          `${ENDPOINTS.LOGIN}?token=${this.config.token}`,
-          { method: 'POST' }
-        );
+      const url = `${this.config.baseURL}${ENDPOINTS.LOGIN}?token=${this.config.token}`;
 
-        if (!response.success || !response.data) {
-          throw new Error(response.error || 'Authentication failed');
+      const response = await retry(async () => {
+        const fetchResponse = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!fetchResponse.ok) {
+          throw new Error(`HTTP error! status: ${fetchResponse.status}`);
         }
 
-        return response;
+        const responseText = await fetchResponse.text();
+        const isAuthenticated = responseText === 'true';
+
+        if (!isAuthenticated) {
+          throw new Error('Authentication failed - API returned false');
+        }
+
+        // Extract cookies from response headers
+        const setCookieHeader = fetchResponse.headers.get('set-cookie');
+        if (setCookieHeader) {
+          // Parse the cookie from Set-Cookie header
+          this.authCookie = setCookieHeader.split(';')[0];
+        } else {
+          // If no cookie, we might need to maintain session differently
+          // For SPTrans API, we might need to keep track of the session
+          this.authCookie = `session=${Date.now()}`;
+        }
+
+        return { success: true, authenticated: isAuthenticated };
       }, this.config.retryAttempts);
 
       this.authenticated = true;
 
-      // In a real implementation, you'd extract the cookie from response headers
-      // For now, we'll simulate a successful authentication
-      this.authCookie = 'authenticated=true';
+      console.log('✅ SPTrans API authenticated successfully');
 
       return {
         success: true,
@@ -88,6 +124,7 @@ export class SPTransAPI {
       };
     } catch (error) {
       this.authenticated = false;
+      console.error('❌ SPTrans API authentication failed:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Authentication failed',
@@ -114,9 +151,22 @@ export class SPTransAPI {
     }
 
     try {
+      // First, we need to find the line code (cl) from the line identifier
+      // The lineCode parameter is like "6824-10", but we need the internal code
+      const lines = await this.fetchBusLines(lineCode);
+
+      if (lines.length === 0) {
+        throw new Error(`Line ${lineCode} not found`);
+      }
+
+      // Use the first matching line's internal code
+      const internalLineCode = lines[0].code;
+
+      console.log(`🚌 Fetching positions for line ${lineCode} (internal code: ${internalLineCode})`);
+
       const result = await retry(async () => {
-        const response = await this.makeRequest<BusPositionResponse>(
-          `${ENDPOINTS.POSITIONS}?codigoLinha=${lineCode}`
+        const response = await this.makeRequest<any>(
+          `${ENDPOINTS.POSITIONS}?codigoLinha=${internalLineCode}`
         );
 
         if (!response.success) {
@@ -125,6 +175,8 @@ export class SPTransAPI {
 
         return response.data?.vs || [];
       }, this.config.retryAttempts);
+
+      console.log(`✅ Found ${result.length} buses for line ${lineCode}`);
 
       // Transform API data to our format
       return result.map((busData: any): BusPosition => ({
@@ -192,8 +244,8 @@ export class SPTransAPI {
       }, this.config.retryAttempts);
 
       return result.map((lineData: any): BusLine => ({
-        code: lineData.cl.toString(),
-        name: lineData.tp || 'Unknown Line',
+        code: lineData.cl.toString(), // This is the internal code needed for position queries
+        name: `${lineData.lt || ''}-${lineData.tl || ''} ${lineData.tp || 'Unknown Line'}`.trim(),
         direction: lineData.ts || 'Unknown Direction',
         active: true,
       }));

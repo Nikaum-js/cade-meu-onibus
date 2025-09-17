@@ -4,8 +4,6 @@ export const API_CONFIG = {
   TIMEOUT: 10000,
   RETRY_ATTEMPTS: 3,
   REFRESH_INTERVAL: 30000, // 30 seconds
-  AUTH_TIMEOUT: 15000, // 15 seconds for authentication
-  MAX_BUSES_PER_REQUEST: 100, // Limit for performance
 };
 
 export const ENDPOINTS = {
@@ -14,11 +12,3 @@ export const ENDPOINTS = {
   POSITIONS: '/Posicao/Linha',
   STOPS: '/Parada/Buscar',
 } as const;
-
-export const POPULAR_LINES = [
-  { code: '6824-10', name: 'Lapa - Pirituba' },
-  { code: '701U-10', name: 'Terminal São Miguel - Metrô Tucuruvi' },
-  { code: '2029-10', name: 'Capão Redondo - Metrô Giovanni Gronchi' },
-  { code: '177A-10', name: 'Terminal Pirituba - Shopping Eldorado' },
-  { code: '175R-10', name: 'Jardim Rincão - Terminal Pirituba' },
-] as const;

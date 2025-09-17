@@ -77,7 +77,7 @@ export class SPTransAPISimple {
       return buses;
 
     } catch (error) {
-      console.error(`❌ Failed to fetch buses for line ${lineCode}, using demo fallback:`, error);
+      console.error(`❌ Failed to fetch buses for line ${lineCode}:`, error);
 
       throw error;
     }
@@ -166,9 +166,7 @@ export class SPTransAPISimple {
 
       return linesData.map(lineData => this.transformLineData(lineData));
     } catch (error) {
-      console.error('Failed to fetch bus lines, using demo fallback:', error);
-
-      // Return empty array on API failure
+      console.error('Failed to fetch bus lines:', error);
       console.log(`❌ API failed, returning empty results`);
       return [];
     }

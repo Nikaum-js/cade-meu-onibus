@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { SPTransAPISimple } from '../services/sptrans-api';
 import type { BusPosition, BusLine } from '../types/bus';
 import type { SearchSuggestion } from '../types/api';
+import { API_CONFIG } from '../constants/api';
 
 interface BusStore {
   // State
@@ -126,7 +127,7 @@ export const useBusStore = create<BusStore>((set, get) => ({
     // Start new interval
     const interval = setInterval(() => {
       fetchBuses(lineCode);
-    }, 30000); // 30 seconds
+    }, API_CONFIG.REFRESH_INTERVAL);
 
     set({ refreshInterval: interval });
   },

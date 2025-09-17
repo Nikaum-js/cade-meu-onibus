@@ -194,13 +194,14 @@ src/
 │   └── map-screen.tsx      ✅ Tela principal funcional
 ├── services/
 │   ├── sptrans-api.ts      ✅ API refatorada e limpa
-│   └── demo-data.ts        ✅ Dados de demonstração
+│   └── query-client.ts     ✅ Configuração React Query
 ├── stores/
 │   ├── bus-store.ts        ✅ Estado dos ônibus
 │   ├── location-store.ts   ✅ Estado de localização
 │   └── app-store.ts        ✅ Estado global
 ├── types/                  ✅ Tipagem TypeScript completa
 ├── constants/              ✅ Configurações da API
+├── hooks/                  ✅ Custom hooks
 └── utils/                  ✅ Utilitários e validações
 ```
 
@@ -214,9 +215,8 @@ src/
 - [x] Auto-refresh inteligente (30s)
 - [x] Estados de loading com feedback visual
 - [x] Tratamento robusto de erros e fallbacks
-- [x] Modo demo para desenvolvimento/teste
 - [x] Validação de formato de linha
-- [x] Sugestões de busca populares
+- [x] Autocomplete inteligente com cache
 
 ### **✅ TECHNICAL FEATURES:**
 - [x] Autenticação automática com SPTrans
@@ -254,7 +254,7 @@ src/
 - ✅ Cache de autenticação
 - ✅ Debouncing em inputs
 - ✅ Cleanup automático de recursos
-- ✅ Fallback inteligente para demo
+- ✅ Cache inteligente com React Query
 
 ### **Maintainable Codebase:**
 - ✅ Named exports consistentes
@@ -269,10 +269,9 @@ src/
 
 1. **README.md** - Documentação principal do projeto
 2. **API_SUCCESS.md** - Detalhes do sucesso da integração
-3. **DEMO_MODE.md** - Como usar o modo demonstração
-4. **MAPS_SOLUTION.md** - Solução para problemas de mapas
-5. **MVP_STATUS.md** - Status das funcionalidades MVP
-6. **.claude/.claude.md** - Padrões e convenções
+3. **MAPS_SOLUTION.md** - Solução para problemas de mapas
+4. **MVP_STATUS.md** - Status das funcionalidades MVP
+5. **.claude/.claude.md** - Padrões e convenções
 
 ---
 
@@ -288,7 +287,7 @@ npm start
 ### **2. Produção:**
 - Token SPTrans já configurado
 - API real funcionando
-- Fallback demo para desenvolvimento
+- Cache React Query configurado
 - Logs detalhados para monitoramento
 
 ### **3. Funcionalidades:**

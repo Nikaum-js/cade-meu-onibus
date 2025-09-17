@@ -12,6 +12,8 @@ import { Ionicons } from '@expo/vector-icons';
 import debounce from 'lodash.debounce';
 import { validateLineCode } from '../../utils/api';
 import { useBusStore } from '../../stores/bus-store';
+import { useSearchHistory } from '../../hooks/use-search-history';
+import { SearchHistory } from './search-history';
 import type { SearchSuggestion } from '../../types/api';
 
 interface SearchBarProps {
@@ -27,10 +29,12 @@ export function SearchBar({
 }: SearchBarProps) {
   const [query, setQuery] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [isValid, setIsValid] = useState(true);
   const inputRef = useRef<TextInput>(null);
 
   const { getSuggestionsForSearch, searchLines, lines } = useBusStore();
+  const { addSearch } = useSearchHistory();
 
   // Create debounced search function
   const debouncedSearch = useCallback(
@@ -52,11 +56,16 @@ export function SearchBar({
   const suggestions = getSuggestionsForSearch(query);
 
   const handleQueryChange = (text: string) => {
+    console.log(`⌨️ User typing: "${text}"`);
     setQuery(text);
     setShowSuggestions(text.length > 0);
+    setShowHistory(text.length === 0); // Show history when empty
 
     // Trigger debounced search for autocomplete
-    debouncedSearch(text);
+    if (text.trim().length >= 2) {
+      console.log(`🕐 Triggering debounced search for: "${text}"`);
+      debouncedSearch(text);
+    }
 
     if (text.length > 0) {
       const valid = validateLineCode(text);
@@ -75,8 +84,14 @@ export function SearchBar({
     setIsValid(isValidCode);
 
     if (isValidCode) {
-      onSearch(searchTerm.trim().toUpperCase());
+      const upperCaseSearchTerm = searchTerm.trim().toUpperCase();
+
+      // Add to search history
+      addSearch(upperCaseSearchTerm);
+
+      onSearch(upperCaseSearchTerm);
       setShowSuggestions(false);
+      setShowHistory(false);
       Keyboard.dismiss();
     }
   };
@@ -90,8 +105,15 @@ export function SearchBar({
   const handleClear = () => {
     setQuery('');
     setShowSuggestions(false);
+    setShowHistory(true);
     setIsValid(true);
     inputRef.current?.focus();
+  };
+
+  const handleHistorySelect = (lineCode: string) => {
+    setQuery(lineCode);
+    setShowHistory(false);
+    handleSearch(lineCode);
   };
 
   const renderSuggestion = ({ item }: { item: SearchSuggestion }) => (
@@ -133,7 +155,10 @@ export function SearchBar({
           autoFocus={autoFocus}
           returnKeyType="search"
           onSubmitEditing={() => handleSearch()}
-          onFocus={() => setShowSuggestions(query.length > 0)}
+          onFocus={() => {
+            setShowSuggestions(query.length > 0);
+            setShowHistory(query.length === 0);
+          }}
         />
 
         {query.length > 0 && (
@@ -170,13 +195,18 @@ export function SearchBar({
           <FlatList
             data={suggestions}
             renderItem={renderSuggestion}
-            keyExtractor={(item) => item.lineCode}
+            keyExtractor={(item, index) => `${item.lineCode}-${index}`}
             style={styles.suggestionsList}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           />
         </View>
       )}
+
+      <SearchHistory
+        visible={showHistory}
+        onSelectHistory={handleHistorySelect}
+      />
     </View>
   );
 }

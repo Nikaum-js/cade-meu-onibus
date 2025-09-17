@@ -44,5 +44,4 @@ export interface BusLineResponse {
 export interface SearchSuggestion {
   lineCode: string;
   lineName: string;
-  popular?: boolean;
 }

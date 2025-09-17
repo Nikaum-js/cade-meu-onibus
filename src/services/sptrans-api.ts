@@ -1,5 +1,4 @@
 import { API_CONFIG, ENDPOINTS } from '../constants/api';
-import { getSimulatedBusData, isDemoLine } from './demo-data';
 import type { BusPosition, BusLine, BusStatus } from '../types/bus';
 
 // API Response types from SPTrans documentation
@@ -80,13 +79,6 @@ export class SPTransAPISimple {
     } catch (error) {
       console.error(`❌ Failed to fetch buses for line ${lineCode}, using demo fallback:`, error);
 
-      // Fallback to demo data on API failure
-      if (isDemoLine(lineCode)) {
-        console.log(`🎭 Using demo fallback for line ${lineCode}`);
-        await this.simulateDelay();
-        return getSimulatedBusData(lineCode);
-      }
-
       throw error;
     }
   }
@@ -137,7 +129,7 @@ export class SPTransAPISimple {
 
   private transformBusData(busData: SPTransBusResponse, lineCode: string): BusPosition {
     return {
-      id: `${busData.p}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `${busData.p}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
       lineCode,
       latitude: busData.py,
       longitude: busData.px,
@@ -161,9 +153,6 @@ export class SPTransAPISimple {
     return response.json();
   }
 
-  private async simulateDelay(): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
-  }
 
   async fetchBusLines(searchTerm?: string): Promise<BusLine[]> {
     await this.ensureAuthenticated();
@@ -179,9 +168,9 @@ export class SPTransAPISimple {
     } catch (error) {
       console.error('Failed to fetch bus lines, using demo fallback:', error);
 
-      // Fallback to demo data on API failure
-      console.log(`🎭 Using demo lines fallback`);
-      return this.getDemoLines(searchTerm);
+      // Return empty array on API failure
+      console.log(`❌ API failed, returning empty results`);
+      return [];
     }
   }
 
@@ -194,56 +183,70 @@ export class SPTransAPISimple {
 
     try {
       const url = `${this.config.baseURL}${ENDPOINTS.LINES}?termosBusca=${encodeURIComponent(searchTerm)}`;
+
+      console.log(`🌐 API REQUEST GET: ${url}`);
+      console.log(`📝 Search term: "${searchTerm}"`);
+
       const linesData = await this.makeGetRequest<SPTransLineResponse[]>(url);
 
-      console.log(`🔍 Found ${linesData.length} lines for search "${searchTerm}"`);
+      console.log(`📋 API RESPONSE - Found ${linesData.length} lines for search "${searchTerm}"`);
+      console.log(`📄 Raw API Response:`, JSON.stringify(linesData, null, 2));
 
-      return linesData.map(lineData => this.transformLineData(lineData));
+      // Log each line details for debugging
+      linesData.forEach((line, index) => {
+        console.log(`🚌 Line ${index + 1}:`, {
+          internalCode: line.cl,
+          publicCode: `${line.lt}-${line.tl}`,
+          primaryTerminal: line.tp,
+          secondaryTerminal: line.ts,
+          direction: line.sl,
+          circular: line.lc
+        });
+      });
+
+      const transformedLines = linesData.map(lineData => {
+        const transformed = this.transformLineData(lineData);
+        console.log(`🔄 Transformed: ${JSON.stringify(lineData)} → ${JSON.stringify(transformed)}`);
+        return transformed;
+      });
+
+      console.log(`✅ Final transformed lines:`, JSON.stringify(transformedLines, null, 2));
+
+      return transformedLines;
     } catch (error) {
-      console.error(`Failed to search bus lines for "${searchTerm}", using demo fallback:`, error);
+      console.error(`❌ API Error for search "${searchTerm}":`, error);
 
-      // Fallback to demo data on API failure
-      console.log(`🎭 Using demo search fallback for "${searchTerm}"`);
-      return this.getDemoLines(searchTerm);
+      // Return empty array on API failure
+      console.log(`❌ API failed, returning empty results for "${searchTerm}"`);
+      return [];
     }
   }
 
-  private getDemoLines(searchTerm?: string): BusLine[] {
-    const allDemoLines = [
-      { code: '6824-10', name: 'Lapa - Pirituba', direction: 'Ida/Volta', active: true },
-      { code: '6824-21', name: 'Lapa - Pirituba (Via Hospital)', direction: 'Ida/Volta', active: true },
-      { code: '682A-10', name: 'Lapa - Vila Anastácio', direction: 'Ida/Volta', active: true },
-      { code: '682B-10', name: 'Lapa - Barra Funda', direction: 'Ida/Volta', active: true },
-      { code: '701U-10', name: 'Terminal São Miguel - Metrô Tucuruvi', direction: 'Ida/Volta', active: true },
-      { code: '701A-10', name: 'Terminal São Miguel - Penha', direction: 'Ida/Volta', active: true },
-      { code: '2029-10', name: 'Capão Redondo - Metrô Giovanni Gronchi', direction: 'Ida/Volta', active: true },
-      { code: '177A-10', name: 'Terminal Pirituba - Shopping Eldorado', direction: 'Ida/Volta', active: true },
-      { code: '175R-10', name: 'Jardim Rincão - Terminal Pirituba', direction: 'Ida/Volta', active: true },
-      { code: '8000-10', name: 'Pça Ramos de Azevedo - Terminal Lapa', direction: 'Ida/Volta', active: true },
-    ];
-
-    if (!searchTerm || !searchTerm.trim()) {
-      return allDemoLines.slice(0, 5);
-    }
-
-    const searchLower = searchTerm.toLowerCase();
-    return allDemoLines.filter(line =>
-      line.code.toLowerCase().includes(searchLower) ||
-      line.name.toLowerCase().includes(searchLower)
-    );
-  }
 
   private transformLineData(lineData: SPTransLineResponse): BusLine {
     const lineNumber = `${lineData.lt}-${lineData.tl}`.replace(/^-|-$/g, '');
-    const lineName = lineData.tp;
+
+    // Use appropriate terminal based on direction
+    const primaryTerminal = lineData.tp || '';
+    const secondaryTerminal = lineData.ts || '';
+
+    // For direction 1: show primary → secondary
+    // For direction 2: show secondary → primary
+    let lineName = '';
+    if (lineData.sl === 1) {
+      lineName = `${primaryTerminal} → ${secondaryTerminal}`;
+    } else {
+      lineName = `${secondaryTerminal} → ${primaryTerminal}`;
+    }
 
     return {
       code: lineNumber,
       name: lineName,
-      direction: lineData.ts || 'Unknown Direction',
+      direction: lineData.sl === 1 ? 'Ida' : 'Volta',
       active: true,
     };
   }
+
 
   private determineBusStatus(busData: any): BusStatus {
     const lastUpdate = new Date(busData.ta);

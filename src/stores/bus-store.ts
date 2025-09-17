@@ -38,13 +38,7 @@ export const useBusStore = create<BusStore>((set, get) => ({
   error: null,
   lastUpdate: null,
   refreshInterval: null,
-  suggestions: [
-    { lineCode: '6824-10', lineName: 'Lapa - Pirituba', popular: true },
-    { lineCode: '701U-10', lineName: 'Terminal São Miguel - Metrô Tucuruvi', popular: true },
-    { lineCode: '2029-10', lineName: 'Capão Redondo - Metrô Giovanni Gronchi', popular: true },
-    { lineCode: '177A-10', lineName: 'Terminal Pirituba - Shopping Eldorado', popular: true },
-    { lineCode: '175R-10', lineName: 'Jardim Rincão - Terminal Pirituba', popular: true },
-  ],
+  suggestions: [],
 
   fetchBuses: async (lineCode: string) => {
     set({ isLoading: true, error: null });
@@ -86,15 +80,20 @@ export const useBusStore = create<BusStore>((set, get) => ({
 
   searchLines: async (searchTerm: string) => {
     if (!searchTerm.trim()) {
+      console.log(`🔍 Empty search term, clearing lines`);
       set({ lines: [] });
       return;
     }
 
+    console.log(`🏪 Store: Starting search for "${searchTerm}"`);
+
     try {
       const lines = await sptransAPI.searchBusLines(searchTerm);
+      console.log(`🏪 Store: Received ${lines.length} lines from API`);
+      console.log(`🏪 Store: Setting lines in store:`, JSON.stringify(lines, null, 2));
       set({ lines });
     } catch (error) {
-      console.error('Failed to search lines:', error);
+      console.error(`🏪 Store: Failed to search lines for "${searchTerm}":`, error);
       set({ lines: [] });
     }
   },
@@ -143,17 +142,15 @@ export const useBusStore = create<BusStore>((set, get) => ({
   getSuggestionsForSearch: (query: string): SearchSuggestion[] => {
     const { suggestions, lines } = get();
 
+    console.log(`💡 Getting suggestions for query: "${query}"`);
+    console.log(`💡 Available lines in store: ${lines.length}`);
+
     if (!query.trim()) {
-      return suggestions.filter(s => s.popular);
+      console.log(`💡 No query, returning empty suggestions`);
+      return [];
     }
 
     const queryLower = query.toLowerCase();
-
-    // Filter from pre-defined suggestions first
-    const matchingSuggestions = suggestions.filter(
-      s => s.lineCode.toLowerCase().includes(queryLower) ||
-           s.lineName.toLowerCase().includes(queryLower)
-    );
 
     // Add from real API lines
     const matchingLines = lines
@@ -164,16 +161,14 @@ export const useBusStore = create<BusStore>((set, get) => ({
       .map(line => ({
         lineCode: line.code,
         lineName: line.name,
-        popular: false,
       }))
       .slice(0, 8); // Limit to 8 results from API
 
-    // Combine and remove duplicates
-    const allSuggestions = [...matchingSuggestions, ...matchingLines];
-    const uniqueSuggestions = allSuggestions.filter((suggestion, index, self) =>
-      index === self.findIndex(s => s.lineCode === suggestion.lineCode)
-    );
+    console.log(`💡 Found ${matchingLines.length} matching lines from API`);
+    console.log(`💡 API lines:`, JSON.stringify(matchingLines, null, 2));
 
-    return uniqueSuggestions.slice(0, 8);
+    console.log(`💡 Final ${matchingLines.length} suggestions from API:`, JSON.stringify(matchingLines, null, 2));
+
+    return matchingLines.slice(0, 8);
   },
 }));

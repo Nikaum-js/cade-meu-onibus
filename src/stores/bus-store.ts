@@ -80,24 +80,16 @@ export const useBusStore = create<BusStore>((set, get) => ({
   },
 
   searchLines: async (searchTerm: string) => {
-    console.log(`🏪 Store: searchLines called with "${searchTerm}"`);
-
     if (!searchTerm.trim()) {
-      console.log(`🔍 Empty search term, clearing lines`);
       set({ lines: [] });
       return;
     }
 
-    console.log(`🏪 Store: Starting search for "${searchTerm}"`);
-
     try {
-      console.log(`🏪 Store: Calling sptransAPI.searchBusLines("${searchTerm}")`);
       const lines = await sptransAPI.searchBusLines(searchTerm);
-      console.log(`🏪 Store: Received ${lines.length} lines from API`);
-      console.log(`🏪 Store: Setting lines in store:`, JSON.stringify(lines, null, 2));
       set({ lines });
     } catch (error) {
-      console.error(`🏪 Store: Failed to search lines for "${searchTerm}":`, error);
+      console.error(`Failed to search lines for "${searchTerm}":`, error);
       set({ lines: [] });
     }
   },
@@ -144,23 +136,16 @@ export const useBusStore = create<BusStore>((set, get) => ({
   },
 
   getSuggestionsForSearch: (query: string): SearchSuggestion[] => {
-    const { suggestions, lines } = get();
-
-    console.log(`💡 Getting suggestions for query: "${query}"`);
-    console.log(`💡 Available lines in store: ${lines.length}`);
+    const { lines } = get();
 
     if (!query.trim()) {
-      console.log(`💡 No query, returning empty suggestions`);
       return [];
     }
 
     const queryLower = query.toLowerCase();
-
-    // Normalize query for matching (682410 → 6824-10)
     const normalizedQuery = normalizeQueryForMatching(queryLower);
-    console.log(`💡 Normalized query for matching: "${query}" → "${normalizedQuery}"`);
 
-    // Add from real API lines
+    // Filter lines that match either original or normalized query
     const matchingLines = lines
       .filter(line => {
         const codeMatch = line.code.toLowerCase().includes(queryLower) ||
@@ -172,14 +157,9 @@ export const useBusStore = create<BusStore>((set, get) => ({
         lineCode: line.code,
         lineName: line.name,
       }))
-      .slice(0, 8); // Limit to 8 results from API
+      .slice(0, 8);
 
-    console.log(`💡 Found ${matchingLines.length} matching lines from API`);
-    console.log(`💡 API lines:`, JSON.stringify(matchingLines, null, 2));
-
-    console.log(`💡 Final ${matchingLines.length} suggestions from API:`, JSON.stringify(matchingLines, null, 2));
-
-    return matchingLines.slice(0, 8);
+    return matchingLines;
   },
 }));
 

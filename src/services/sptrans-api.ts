@@ -173,38 +173,25 @@ export class SPTransAPISimple {
   }
 
   async searchBusLines(searchTerm: string): Promise<BusLine[]> {
-    console.log(`🌐 API: searchBusLines called with "${searchTerm}"`);
-
     if (!searchTerm.trim()) {
-      console.log(`🌐 API: Empty search term, returning []`);
       return [];
     }
 
     // Normalize search term for API compatibility
     const normalizedTerm = this.normalizeSearchTerm(searchTerm);
-    console.log(`🔄 API: Normalized "${searchTerm}" → "${normalizedTerm}"`);
 
-    console.log(`🌐 API: Ensuring authentication...`);
     await this.ensureAuthenticated();
 
     try {
       const url = `${this.config.baseURL}${ENDPOINTS.LINES}?termosBusca=${encodeURIComponent(normalizedTerm)}`;
-
-      console.log(`🌐 API REQUEST GET: ${url}`);
-      console.log(`📝 Original: "${searchTerm}" | Normalized: "${normalizedTerm}"`);
-
       const linesData = await this.makeGetRequest<SPTransLineResponse[]>(url);
-
-      console.log(`📋 API RESPONSE - Found ${linesData.length} lines for search "${normalizedTerm}"`);
 
       // Transform each line individually (keep directions separate)
       const transformedLines = linesData.map(lineData => this.transformLineData(lineData));
 
-      console.log(`✅ Final transformed lines:`, JSON.stringify(transformedLines, null, 2));
-
       return transformedLines;
     } catch (error) {
-      console.error(`❌ API Error for search "${normalizedTerm}":`, error);
+      console.error(`API Error for search "${normalizedTerm}":`, error);
       return [];
     }
   }
@@ -217,14 +204,11 @@ export class SPTransAPISimple {
       // Adicionar hífen antes dos últimos 2 dígitos: 682410 → 6824-10
       const match = trimmed.match(/^([0-9]{3,4}[A-Z]?)([0-9]{2})$/);
       if (match) {
-        const normalized = `${match[1]}-${match[2]}`;
-        console.log(`🔄 Full code normalization: "${trimmed}" → "${normalized}"`);
-        return normalized;
+        return `${match[1]}-${match[2]}`;
       }
     }
 
     // Caso contrário, usar termo original (códigos parciais como "682", "6824", etc.)
-    console.log(`🔄 Keeping original term: "${trimmed}"`);
     return trimmed;
   }
 
@@ -246,8 +230,6 @@ export class SPTransAPISimple {
     }
 
     const displayName = `${directionLabel}: ${terminalName}`;
-
-    console.log(`🏷️ Line ${lineNumber} - Direction ${lineData.sl}: ${displayName}`);
 
     return {
       code: lineNumber,

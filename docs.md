@@ -385,7 +385,8 @@ Este aplicativo pode ser usado **hoje mesmo** para monitorar ônibus reais da SP
 ## 📝 Formulários e Validação com React Hook Form + Zod
 
 **Data de implementação:** 17 de Setembro, 2025
-**Versão:** 2.2 - Forms Validation Upgrade
+**Versão:** 2.3 - Forms Validation Complete
+**Status:** ✅ Totalmente Funcional
 
 ### **✅ Implementações Realizadas:**
 
@@ -482,6 +483,11 @@ const {
    - Mostra "Ida: TERMINAL CAPELINHA" e "Volta: PQ. FERNANDA"
    - Usuário escolhe direção específica
    - Não agrupa sentidos automaticamente
+
+6. **Normalização Inteligente**
+   - API: Normaliza códigos completos (`682410` → `6824-10`)
+   - Store: Dupla verificação (original + normalizado)
+   - UX: Funciona com qualquer formato de entrada
 
 ### **🎯 Padrões Estabelecidos**
 

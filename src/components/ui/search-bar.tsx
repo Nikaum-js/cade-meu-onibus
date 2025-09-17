@@ -58,8 +58,6 @@ export function SearchBar({
   const debouncedSearch = useCallback(
     debounce((searchTerm: string) => {
       if (searchTerm.trim().length >= 2) {
-        console.log(`🔍 SearchBar: Triggering autocomplete search for: "${searchTerm}"`);
-        console.log(`🔍 SearchBar: Calling searchLines function...`);
         searchLines(searchTerm);
       }
     }, 300),
@@ -84,8 +82,6 @@ export function SearchBar({
   const suggestions = getSuggestionsForSearch(watchedLineCode);
 
   const onSubmit = (data: SearchFormData) => {
-    console.log(`🔍 Searching for: "${data.lineCode}"`);
-
     // Add to search history
     addSearch(data.lineCode);
 

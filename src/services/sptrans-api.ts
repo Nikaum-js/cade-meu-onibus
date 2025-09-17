@@ -180,18 +180,22 @@ export class SPTransAPISimple {
       return [];
     }
 
+    // Normalize search term for API compatibility
+    const normalizedTerm = this.normalizeSearchTerm(searchTerm);
+    console.log(`🔄 API: Normalized "${searchTerm}" → "${normalizedTerm}"`);
+
     console.log(`🌐 API: Ensuring authentication...`);
     await this.ensureAuthenticated();
 
     try {
-      const url = `${this.config.baseURL}${ENDPOINTS.LINES}?termosBusca=${encodeURIComponent(searchTerm)}`;
+      const url = `${this.config.baseURL}${ENDPOINTS.LINES}?termosBusca=${encodeURIComponent(normalizedTerm)}`;
 
       console.log(`🌐 API REQUEST GET: ${url}`);
-      console.log(`📝 Search term: "${searchTerm}"`);
+      console.log(`📝 Original: "${searchTerm}" | Normalized: "${normalizedTerm}"`);
 
       const linesData = await this.makeGetRequest<SPTransLineResponse[]>(url);
 
-      console.log(`📋 API RESPONSE - Found ${linesData.length} lines for search "${searchTerm}"`);
+      console.log(`📋 API RESPONSE - Found ${linesData.length} lines for search "${normalizedTerm}"`);
 
       // Transform each line individually (keep directions separate)
       const transformedLines = linesData.map(lineData => this.transformLineData(lineData));
@@ -200,9 +204,28 @@ export class SPTransAPISimple {
 
       return transformedLines;
     } catch (error) {
-      console.error(`❌ API Error for search "${searchTerm}":`, error);
+      console.error(`❌ API Error for search "${normalizedTerm}":`, error);
       return [];
     }
+  }
+
+  private normalizeSearchTerm(term: string): string {
+    const trimmed = term.trim().toUpperCase();
+
+    // Se tem 6+ caracteres e parece ser código completo sem hífen (ex: 682410, 701U10)
+    if (trimmed.length >= 6 && /^[0-9]{3,4}[A-Z]?[0-9]{2}$/.test(trimmed)) {
+      // Adicionar hífen antes dos últimos 2 dígitos: 682410 → 6824-10
+      const match = trimmed.match(/^([0-9]{3,4}[A-Z]?)([0-9]{2})$/);
+      if (match) {
+        const normalized = `${match[1]}-${match[2]}`;
+        console.log(`🔄 Full code normalization: "${trimmed}" → "${normalized}"`);
+        return normalized;
+      }
+    }
+
+    // Caso contrário, usar termo original (códigos parciais como "682", "6824", etc.)
+    console.log(`🔄 Keeping original term: "${trimmed}"`);
+    return trimmed;
   }
 
 

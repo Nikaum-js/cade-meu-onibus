@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   TextInput,
@@ -6,10 +6,13 @@ import {
   FlatList,
   Text,
   Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import debounce from 'lodash.debounce';
-import { validateLineCode } from '../../utils/api';
+import { searchSchema, type SearchFormData } from '../../schemas/search';
 import { useBusStore } from '../../stores/bus-store';
 import { useSearchHistory } from '../../hooks/use-search-history';
 import { SearchHistory } from './search-history';
@@ -23,19 +26,35 @@ interface SearchBarProps {
 
 export function SearchBar({
   onSearch,
-  placeholder = 'Digite o código da linha (ex: 6824-10)',
+  placeholder = 'Digite o código',
   autoFocus = false,
 }: SearchBarProps) {
-  const [query, setQuery] = useState('');
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
-  const [isValid, setIsValid] = useState(true);
-  const inputRef = useRef<TextInput>(null);
+  const [isFocused, setIsFocused] = useState(false);
 
-  const { getSuggestionsForSearch, searchLines, lines } = useBusStore();
+  const { getSuggestionsForSearch, searchLines } = useBusStore();
   const { addSearch } = useSearchHistory();
 
-  // Create debounced search function
+  const {
+    control,
+    handleSubmit,
+    watch,
+    setValue,
+    setFocus,
+    reset,
+    formState: { errors, isValid },
+  } = useForm<SearchFormData>({
+    resolver: zodResolver(searchSchema),
+    mode: 'onChange',
+    defaultValues: {
+      lineCode: '',
+    },
+  });
+
+  const watchedLineCode = watch('lineCode');
+  const showSuggestions = isFocused && watchedLineCode.length > 0 && watchedLineCode.length < 7;
+  const showHistory = isFocused && watchedLineCode.length === 0;
+
+  // Create debounced search function for autocomplete
   const debouncedSearch = useCallback(
     debounce((searchTerm: string) => {
       if (searchTerm.trim().length >= 2) {
@@ -52,67 +71,64 @@ export function SearchBar({
     };
   }, [debouncedSearch]);
 
-  const suggestions = getSuggestionsForSearch(query);
-
-  const handleQueryChange = (text: string) => {
-    console.log(`⌨️ User typing: "${text}"`);
-    setQuery(text);
-    setShowSuggestions(text.length > 0);
-    setShowHistory(text.length === 0); // Show history when empty
-
-    // Trigger debounced search for autocomplete
-    if (text.trim().length >= 2) {
-      console.log(`🕐 Triggering debounced search for: "${text}"`);
-      debouncedSearch(text);
+  // Watch for changes in line code to trigger debounced search
+  useEffect(() => {
+    if (watchedLineCode.trim().length >= 2) {
+      debouncedSearch(watchedLineCode);
     }
+  }, [watchedLineCode, debouncedSearch]);
 
-    if (text.length > 0) {
-      const valid = validateLineCode(text);
-      setIsValid(valid);
-    } else {
-      setIsValid(true);
-    }
+  const suggestions = getSuggestionsForSearch(watchedLineCode);
+
+  const onSubmit = (data: SearchFormData) => {
+    console.log(`🔍 Searching for: "${data.lineCode}"`);
+
+    // Add to search history
+    addSearch(data.lineCode);
+
+    // Execute search
+    onSearch(data.lineCode);
+
+    // Close dropdowns and dismiss keyboard
+    hideDropdowns();
+    Keyboard.dismiss();
   };
 
-  const handleSearch = (searchQuery?: string) => {
-    const searchTerm = searchQuery || query;
+  const hideDropdowns = () => {
+    setIsFocused(false);
+  };
 
-    if (!searchTerm.trim()) return;
+  const handleFocus = () => {
+    setIsFocused(true);
+  };
 
-    const isValidCode = validateLineCode(searchTerm);
-    setIsValid(isValidCode);
+  const handleBlur = () => {
+    // Delay to allow selection to complete
+    setTimeout(() => {
+      setIsFocused(false);
+    }, 100);
+  };
 
-    if (isValidCode) {
-      const upperCaseSearchTerm = searchTerm.trim().toUpperCase();
-
-      // Add to search history
-      addSearch(upperCaseSearchTerm);
-
-      onSearch(upperCaseSearchTerm);
-      setShowSuggestions(false);
-      setShowHistory(false);
-      Keyboard.dismiss();
-    }
+  const handleOutsidePress = () => {
+    hideDropdowns();
   };
 
   const handleSuggestionPress = (suggestion: SearchSuggestion) => {
-    setQuery(suggestion.lineCode);
-    setShowSuggestions(false);
-    handleSearch(suggestion.lineCode);
+    setValue('lineCode', suggestion.lineCode, { shouldValidate: true });
+    setIsFocused(false);
+    handleSubmit(onSubmit)();
   };
 
   const handleClear = () => {
-    setQuery('');
-    setShowSuggestions(false);
-    setShowHistory(true);
-    setIsValid(true);
-    inputRef.current?.focus();
+    reset();
+    setIsFocused(true);
+    setFocus('lineCode');
   };
 
   const handleHistorySelect = (lineCode: string) => {
-    setQuery(lineCode);
-    setShowHistory(false);
-    handleSearch(lineCode);
+    setValue('lineCode', lineCode, { shouldValidate: true });
+    setIsFocused(false);
+    handleSubmit(onSubmit)();
   };
 
   const renderSuggestion = ({ item }: { item: SearchSuggestion }) => (
@@ -139,77 +155,98 @@ export function SearchBar({
   );
 
   return (
-    <View className="z-50">
-      <View className={`flex-row items-center bg-gray-100 rounded-xl px-4 py-2 shadow-sm ${!isValid ? 'border border-red-600' : ''}`}>
-        <View className="mr-2">
-          <Ionicons name="search" size={20} color="#6B7280" />
-        </View>
+    <>
+      {(showSuggestions || showHistory) && (
+        <TouchableWithoutFeedback onPress={handleOutsidePress}>
+          <View className="absolute inset-0 z-40" />
+        </TouchableWithoutFeedback>
+      )}
 
-        <TextInput
-          ref={inputRef}
-          className="flex-1 text-base text-gray-800 py-1"
-          value={query}
-          onChangeText={handleQueryChange}
-          placeholder={placeholder}
-          placeholderTextColor="#9CA3AF"
-          autoCapitalize="characters"
-          autoCorrect={false}
-          autoFocus={autoFocus}
-          returnKeyType="search"
-          onSubmitEditing={() => handleSearch()}
-          onFocus={() => {
-            setShowSuggestions(query.length > 0);
-            setShowHistory(query.length === 0);
-          }}
+      <View className="relative z-50">
+        <Controller
+          control={control}
+          name="lineCode"
+          render={({ field: { onChange, value, onBlur, ref } }) => (
+            <View
+              className={`flex-row items-center bg-gray-100 rounded-xl px-4 py-3 shadow-sm ${
+                errors.lineCode ? 'border-2 border-red-500' : 'border border-transparent'
+              }`}
+            >
+              <View className="mr-3">
+                <Ionicons name="search" size={20} color="#6B7280" />
+              </View>
+
+              <TextInput
+                ref={ref}
+                className="flex-1 text-base text-gray-800 py-1"
+                value={value}
+                onChangeText={onChange}
+                onFocus={handleFocus}
+                onBlur={() => {
+                  onBlur();
+                  handleBlur();
+                }}
+                placeholder={placeholder}
+                placeholderTextColor="#9CA3AF"
+                autoCapitalize="characters"
+                autoCorrect={false}
+                autoFocus={autoFocus}
+                returnKeyType="search"
+                onSubmitEditing={handleSubmit(onSubmit)}
+              />
+
+              {value.length > 0 && (
+                <TouchableOpacity
+                  className="ml-2"
+                  onPress={handleClear}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="close-circle" size={20} color="#6B7280" />
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                className="ml-2 p-1"
+                onPress={handleSubmit(onSubmit)}
+                disabled={!value.trim() || !isValid}
+              >
+                <Ionicons
+                  name="arrow-forward"
+                  size={20}
+                  color={value.trim() && isValid ? '#1E40AF' : '#6B7280'}
+                />
+              </TouchableOpacity>
+            </View>
+          )}
         />
 
-        {query.length > 0 && (
-          <TouchableOpacity
-            className="ml-2"
-            onPress={handleClear}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons name="close-circle" size={20} color="#6B7280" />
-          </TouchableOpacity>
+        {errors.lineCode && (
+          <Text className="text-red-600 text-xs mt-2 ml-4">
+            {errors.lineCode.message}
+          </Text>
         )}
 
-        <TouchableOpacity
-          className="ml-2 p-1"
-          onPress={() => handleSearch()}
-          disabled={!query.trim()}
-        >
-          <Ionicons
-            name="arrow-forward"
-            size={20}
-            color={query.trim() ? '#b91c1c' : '#6B7280'}
+        {showSuggestions && suggestions.length > 0 && (
+          <View className="absolute top-full left-0 right-0 bg-white rounded-2xl mt-2 max-h-72 shadow-xl border border-gray-100 z-50">
+            <FlatList
+              data={suggestions}
+              renderItem={renderSuggestion}
+              keyExtractor={(item, index) => `${item.lineCode}-${index}`}
+              className="max-h-72"
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            />
+          </View>
+        )}
+
+        {showHistory && (
+          <SearchHistory
+            visible={showHistory}
+            onSelectHistory={handleHistorySelect}
           />
-        </TouchableOpacity>
+        )}
       </View>
-
-      {!isValid && (
-        <Text className="text-red-600 text-xs mt-1 ml-4">
-          Formato inválido. Use o padrão: 6824-10
-        </Text>
-      )}
-
-      {showSuggestions && suggestions.length > 0 && (
-        <View className="absolute top-full left-0 right-0 bg-white rounded-2xl mt-2 max-h-72 shadow-xl border border-gray-100 z-50">
-          <FlatList
-            data={suggestions}
-            renderItem={renderSuggestion}
-            keyExtractor={(item, index) => `${item.lineCode}-${index}`}
-            className="max-h-72"
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          />
-        </View>
-      )}
-
-      <SearchHistory
-        visible={showHistory}
-        onSelectHistory={handleHistorySelect}
-      />
-    </View>
+    </>
   );
 }
 

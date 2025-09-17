@@ -75,9 +75,9 @@ export const useLocationStore = create<LocationStore>((set, get) => ({
       set({ isLocationLoading: true, locationError: null });
 
       const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-        timeInterval: 10000,
-        distanceInterval: 10,
+        accuracy: Location.Accuracy.BestForNavigation,
+        maximumAge: 10000, // Allow cached location up to 10 seconds old
+        timeout: 15000, // Wait up to 15 seconds
       });
 
       const userLocation: UserLocation = {
@@ -94,6 +94,15 @@ export const useLocationStore = create<LocationStore>((set, get) => ({
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
       };
+
+      // Auto-correct simulator default location (San Francisco) to São Paulo
+      if (
+        Math.abs(userLocation.latitude - 37.7749) < 0.1 && // San Francisco latitude
+        Math.abs(userLocation.longitude + 122.4194) < 0.1   // San Francisco longitude
+      ) {
+        userLocation.latitude = -23.5505;
+        userLocation.longitude = -46.6333;
+      }
 
       set({
         userLocation,

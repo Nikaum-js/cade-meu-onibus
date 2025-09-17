@@ -14,7 +14,7 @@
 
 ### **1. Funcionalidades MVP + V2 - COMPLETAS ✅**
 
-- **🗺️ Interface de Mapa**: Tela principal com design premium
+- **🗺️ Google Maps Integrado**: Mapa em tela cheia com marcadores de ônibus em tempo real
 - **🔍 Sistema de Busca Avançado**: Autocomplete em tempo real com API SPTrans
 - **📝 Histórico de Buscas**: Persistência local com React Query + AsyncStorage
 - **🚌 Rastreamento Real**: Dados ao vivo da API SPTrans
@@ -32,6 +32,7 @@
 - **React Native + Expo**: Multiplataforma funcionando
 - **NativeWind**: Utility-first styling com Tailwind CSS
 - **React Hook Form + Zod**: Validação de formulários profissional
+- **Google Maps API**: Mapa interativo com marcadores dinâmicos e localização GPS
 - **API Integration**: Autenticação e requisições estáveis
 - **Error Handling**: Tratamento robusto de falhas
 - **Design System**: UI components padronizados com paleta SPTrans
@@ -141,11 +142,131 @@ info: '#3b82f6'     // Azul para rotas e informações
 - **Tipografia pesada**: font-bold, font-extrabold
 - **Espaçamentos responsivos**: padding e margin com classes utilitárias
 
+### **🗺️ Google Maps Integração**
+- **Mapa em tela cheia**: Substituiu placeholder por Google Maps real
+- **Marcadores dinâmicos**: Ônibus aparecem como pins no mapa
+- **Localização GPS**: Mostra posição do usuário
+- **Overlay de informações**: Lista compacta dos ônibus na parte inferior
+- **Performance otimizada**: Memoização de marcadores e região inicial
+- **API Key configurada**: Pronta para produção
+
 ### **🛠️ Melhorias Técnicas**
 - **React Query**: Cache de 5-10 minutos
 - **Custom Hooks**: `useSearchHistory()`
 - **TypeScript**: Tipagem ainda mais rigorosa
-- **Performance**: Debouncing e otimizações
+- **Performance**: Debouncing e otimizações React
+- **React.useCallback**: Funções otimizadas
+- **React.useMemo**: Cálculos pesados memoizados
+
+---
+
+## 🗺️ Implementação Google Maps
+
+### **📋 Dependências e Configuração**
+
+**Dependências instaladas:**
+```json
+{
+  "react-native-maps": "1.20.1",
+  "expo-crypto": "^15.0.7",
+  "expo-linear-gradient": "^15.0.7"
+}
+```
+
+**API Key configurada no `app.json`:**
+```json
+{
+  "expo": {
+    "ios": {
+      "config": {
+        "googleMapsApiKey": "***REMOVED-LEAKED-KEY***"
+      }
+    },
+    "android": {
+      "config": {
+        "googleMaps": {
+          "apiKey": "***REMOVED-LEAKED-KEY***"
+        }
+      }
+    }
+  }
+}
+```
+
+### **🏗️ Arquitetura do Código**
+
+**MapScreen Component** (`src/screens/map-screen.tsx`):
+- ✅ **Centralização inteligente**: Prioriza localização do usuário
+- ✅ **Auto-correção**: Corrige localização padrão do simulador (San Francisco → São Paulo)
+- ✅ **Animações suaves**: `animateToRegion()` e `fitToCoordinates()`
+- ✅ **Performance otimizada**: `React.useMemo` para marcadores e região
+- ✅ **TypeScript completo**: Tipagem com `react-native-maps`
+
+**Funcionalidades principais:**
+```typescript
+// Região inicial otimizada
+const initialRegion: Region = useMemo(() => {
+  if (userLocation) {
+    return {
+      latitude: userLocation.latitude,
+      longitude: userLocation.longitude,
+      latitudeDelta: 0.01, // Zoom próximo
+      longitudeDelta: 0.01,
+    };
+  }
+  return mapRegion; // Fallback São Paulo
+}, [userLocation, mapRegion]);
+
+// Marcadores memoizados
+const busMarkers = useMemo(() => {
+  return Array.from(buses.values()).map((bus) => (
+    <Marker
+      key={bus.id}
+      coordinate={{ latitude: bus.latitude, longitude: bus.longitude }}
+      title={`Ônibus ${bus.id.split('-')[0]}`}
+      description={`Linha ${bus.lineCode} - ${getStatusLabel(bus.status)}`}
+    />
+  ));
+}, [buses, getStatusLabel]);
+```
+
+### **🎯 Funcionalidades Implementadas**
+
+**🗺️ Mapa Principal:**
+- **Provider**: Google Maps (PROVIDER_GOOGLE)
+- **Centralização**: Localização do usuário prioritária
+- **Fallback**: São Paulo (-23.5505, -46.6333)
+- **Botão "Minha localização"**: Habilitado
+- **Loading indicator**: Azul (#1E40AF)
+
+**📍 Marcadores de Ônibus:**
+- **Dinâmicos**: Criados automaticamente para cada ônibus
+- **Informações**: Número do ônibus + linha + status
+- **Performance**: Memoizados para evitar re-renders
+
+**📱 Overlay de Informações:**
+- **Posição**: Parte inferior da tela
+- **Conteúdo**: Lista dos primeiros 3 ônibus + contador total
+- **Indicadores de status**: Círculos coloridos (verde/amarelo/cinza)
+
+**🎯 Comportamento Inteligente:**
+- **Sem ônibus**: Centraliza na localização do usuário
+- **Com ônibus**: Ajusta zoom para mostrar usuário + ônibus
+- **Auto-correção**: Detecta simulador e corrige para São Paulo
+
+### **🔧 Troubleshooting Resolvido**
+
+**❌ Erro: `TurboModuleRegistry.getEnforcing(...): 'RNMapsAirModule'`**
+- **Causa**: `expo-maps` não funciona no Expo SDK 54
+- **Solução**: Substituído por `react-native-maps` 1.20.1
+
+**❌ Erro: `Cannot find native module 'ExpoMaps'`**
+- **Causa**: Módulo nativo não linkado
+- **Solução**: Removido expo-maps, usado react-native-maps
+
+**❌ Localização em Union Square (San Francisco)**
+- **Causa**: Localização padrão do simulador iOS
+- **Solução**: Auto-correção automática para São Paulo
 
 ---
 
@@ -230,12 +351,15 @@ src/
 - [x] Performance optimizations
 
 ### **✅ UX/UI FEATURES:**
-- [x] Interface premium estilo Google Maps
+- [x] Interface premium com Google Maps integrado
 - [x] Search bar com autocomplete
 - [x] Lista de ônibus com status colorido
 - [x] Coordenadas GPS visíveis
 - [x] Indicadores de timestamp
 - [x] Estados de erro amigáveis
+- [x] Marcadores de ônibus no mapa em tempo real
+- [x] Overlay com lista dos ônibus
+- [x] Botão "Minha localização" integrado
 - [x] Loading skeletons elegantes
 - [x] Safe area support
 
@@ -301,11 +425,11 @@ npm start
 
 ## 🎉 Próximos Passos (Opcionais)
 
-### **Versão 2.0 - Mapas Visuais:**
-- [ ] Development build para React Native Maps
-- [ ] Google Maps API key
-- [ ] Marcadores visuais no mapa
-- [ ] Clustering de ônibus
+### **~~Versão 2.0 - Mapas Visuais~~ ✅ CONCLUÍDA:**
+- [x] ~~Development build para React Native Maps~~ → **react-native-maps 1.20.1 instalado**
+- [x] ~~Google Maps API key~~ → **Configurado e funcionando**
+- [x] ~~Marcadores visuais no mapa~~ → **Marcadores dinâmicos implementados**
+- [ ] Clustering de ônibus (futuro aprimoramento)
 
 ### **Versão 3.0 - Features Avançadas:**
 - [ ] Previsões de chegada
@@ -322,14 +446,16 @@ npm start
 
 ### **Principais Conquistas:**
 - ✅ **MVP completo** com todas as funcionalidades solicitadas
+- ✅ **Google Maps integrado** com marcadores de ônibus em tempo real
 - ✅ **API SPTrans** integrada e funcionando perfeitamente
 - ✅ **Arquitetura robusta** escalável e manutenível
 - ✅ **UX/UI premium** com feedback visual excelente
+- ✅ **Performance otimizada** com React memoization
 - ✅ **Código limpo** seguindo melhores práticas
 - ✅ **Documentação completa** para futuras melhorias
 
 ### **Impacto:**
-Este aplicativo pode ser usado **hoje mesmo** para monitorar ônibus reais da SPTrans em São Paulo, proporcionando uma experiência moderna e eficiente para usuários do transporte público.
+Este aplicativo pode ser usado **hoje mesmo** para monitorar ônibus reais da SPTrans em São Paulo, proporcionando uma experiência moderna e visual com **mapa interativo** e eficiente para usuários do transporte público.
 
 **🚌 São Paulo agora tem seu rastreador de ônibus funcionando! ✨**
 

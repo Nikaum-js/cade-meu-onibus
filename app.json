@@ -17,6 +17,9 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "This app needs access to location to show nearby buses and your position on the map.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to location to show nearby buses and your position on the map."
+      },
+      "config": {
+        "googleMapsApiKey": "***REMOVED-LEAKED-KEY***"
       }
     },
     "android": {
@@ -30,7 +33,12 @@
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
         "INTERNET"
-      ]
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "***REMOVED-LEAKED-KEY***"
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"

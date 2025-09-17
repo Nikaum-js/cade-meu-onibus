@@ -14,6 +14,7 @@ export class SPTransAPI {
   private config: OlhoVivoConfig;
   private authenticated = false;
   private authCookie: string = '';
+  private sessionHeaders: Record<string, string> = {};
 
   constructor() {
     this.config = {
@@ -36,9 +37,13 @@ export class SPTransAPI {
         ...options.headers as Record<string, string>,
       };
 
-      // Add cookie header if authenticated
-      if (this.authCookie) {
-        headers['Cookie'] = this.authCookie;
+      // Add authentication headers
+      if (this.authenticated) {
+        if (this.authCookie) {
+          headers['Cookie'] = this.authCookie;
+        }
+        // Some APIs might need the token in every request
+        // Let's also try adding it as a query parameter for authenticated requests
       }
 
       const response = await fetch(url, {
@@ -102,13 +107,17 @@ export class SPTransAPI {
 
         // Extract cookies from response headers
         const setCookieHeader = fetchResponse.headers.get('set-cookie');
+        console.log('Set-Cookie header:', setCookieHeader);
+
         if (setCookieHeader) {
           // Parse the cookie from Set-Cookie header
           this.authCookie = setCookieHeader.split(';')[0];
+          console.log('Extracted cookie:', this.authCookie);
         } else {
-          // If no cookie, we might need to maintain session differently
-          // For SPTrans API, we might need to keep track of the session
-          this.authCookie = `session=${Date.now()}`;
+          // The SPTrans API might not use traditional cookies
+          // We'll try to maintain the session by sending the token in subsequent requests
+          console.log('No Set-Cookie header found, using alternative session management');
+          this.authCookie = '';
         }
 
         return { success: true, authenticated: isAuthenticated };
@@ -133,15 +142,17 @@ export class SPTransAPI {
   }
 
   async fetchBusPositions(lineCode: string): Promise<BusPosition[]> {
-    // Check if it's a demo line or if we should use demo data
-    if (isDemoLine(lineCode) || this.config.token === 'YOUR_API_TOKEN_HERE') {
-      console.log(`🚌 Using demo data for line ${lineCode}`);
+    // Check if we should use demo data (only if token is placeholder)
+    if (this.config.token === 'YOUR_API_TOKEN_HERE') {
+      console.log(`🚌 Using demo data for line ${lineCode} (no real token)`);
 
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
 
       return getSimulatedBusData(lineCode);
     }
+
+    console.log(`🚌 Attempting to use real SPTrans API for line ${lineCode}`);
 
     if (!this.authenticated) {
       const authResult = await this.authenticate();

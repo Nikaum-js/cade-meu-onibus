@@ -80,6 +80,8 @@ export const useBusStore = create<BusStore>((set, get) => ({
   },
 
   searchLines: async (searchTerm: string) => {
+    console.log(`🏪 Store: searchLines called with "${searchTerm}"`);
+
     if (!searchTerm.trim()) {
       console.log(`🔍 Empty search term, clearing lines`);
       set({ lines: [] });
@@ -89,6 +91,7 @@ export const useBusStore = create<BusStore>((set, get) => ({
     console.log(`🏪 Store: Starting search for "${searchTerm}"`);
 
     try {
+      console.log(`🏪 Store: Calling sptransAPI.searchBusLines("${searchTerm}")`);
       const lines = await sptransAPI.searchBusLines(searchTerm);
       console.log(`🏪 Store: Received ${lines.length} lines from API`);
       console.log(`🏪 Store: Setting lines in store:`, JSON.stringify(lines, null, 2));

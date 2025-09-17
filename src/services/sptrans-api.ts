@@ -173,10 +173,14 @@ export class SPTransAPISimple {
   }
 
   async searchBusLines(searchTerm: string): Promise<BusLine[]> {
+    console.log(`🌐 API: searchBusLines called with "${searchTerm}"`);
+
     if (!searchTerm.trim()) {
+      console.log(`🌐 API: Empty search term, returning []`);
       return [];
     }
 
+    console.log(`🌐 API: Ensuring authentication...`);
     await this.ensureAuthenticated();
 
     try {

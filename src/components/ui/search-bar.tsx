@@ -58,7 +58,8 @@ export function SearchBar({
   const debouncedSearch = useCallback(
     debounce((searchTerm: string) => {
       if (searchTerm.trim().length >= 2) {
-        console.log(`🔍 Triggering autocomplete search for: "${searchTerm}"`);
+        console.log(`🔍 SearchBar: Triggering autocomplete search for: "${searchTerm}"`);
+        console.log(`🔍 SearchBar: Calling searchLines function...`);
         searchLines(searchTerm);
       }
     }, 300),

@@ -405,10 +405,20 @@ export const searchSchema = z.object({
     .string()
     .min(1, 'Digite o código da linha')
     .regex(
-      /^[0-9]{4}-[0-9]{2}$|^[0-9]{3}[A-Z]-[0-9]{2}$/,
-      'Formato inválido. Use o padrão: 6824-10 ou 701U-10'
+      /^[0-9]{3,4}[A-Z]?-?[0-9]{2}$/,
+      'Formato inválido. Use o padrão: 6824-10, 682410, 701U-10 ou 701U10'
     )
-    .transform((val) => val.toUpperCase()),
+    .transform((val) => {
+      const upper = val.toUpperCase();
+      // Normalizar para formato com hífen se não tiver
+      if (!/.*-.*/.test(upper)) {
+        const match = upper.match(/^([0-9]{3,4}[A-Z]?)([0-9]{2})$/);
+        if (match) {
+          return `${match[1]}-${match[2]}`;
+        }
+      }
+      return upper;
+    }),
 });
 ```
 
@@ -463,22 +473,33 @@ const {
    - Cursor inicia no começo do placeholder
    - Texto alinhado naturalmente (removido textAlign="center")
 
+4. **Busca Flexível**
+   - Aceita formatos: `6824-10`, `682410`, `701U-10`, `701U10`
+   - API busca com formato original digitado
+   - Normalização apenas no submit final
+
+5. **Sentidos Separados**
+   - Mostra "Ida: TERMINAL CAPELINHA" e "Volta: PQ. FERNANDA"
+   - Usuário escolhe direção específica
+   - Não agrupa sentidos automaticamente
+
 ### **🎯 Padrões Estabelecidos**
 
 #### **Estrutura de Schema Zod**
 ```typescript
-// 1. Validação básica
-.string()
-.min(1, 'Mensagem de erro')
+// 1. Validação flexível de formatos
+.regex(/^[0-9]{3,4}[A-Z]?-?[0-9]{2}$/, 'Múltiplos formatos aceitos')
 
-// 2. Validação com regex
-.regex(/pattern/, 'Formato inválido')
+// 2. Transformação inteligente
+.transform((val) => {
+  // Normalizar formato apenas no submit
+  // API busca usa formato original
+})
 
-// 3. Transformação de dados
-.transform((val) => val.toUpperCase())
-
-// 4. Tipagem automática
-export type FormData = z.infer<typeof schema>;
+// 3. Separação de responsabilidades
+// - Busca: formato original do usuário
+// - Submit: formato normalizado
+// - Display: formato amigável
 ```
 
 #### **Setup do React Hook Form**

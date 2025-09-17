@@ -31,6 +31,7 @@
 - **AsyncStorage**: Persistência local para histórico
 - **React Native + Expo**: Multiplataforma funcionando
 - **NativeWind**: Utility-first styling com Tailwind CSS
+- **React Hook Form + Zod**: Validação de formulários profissional
 - **API Integration**: Autenticação e requisições estáveis
 - **Error Handling**: Tratamento robusto de falhas
 - **Design System**: UI components padronizados com paleta SPTrans
@@ -381,4 +382,170 @@ Este aplicativo pode ser usado **hoje mesmo** para monitorar ônibus reais da SP
 
 ---
 
-*Desenvolvido com ❤️ seguindo as melhores práticas de desenvolvimento React Native + TypeScript + NativeWind*
+## 📝 Formulários e Validação com React Hook Form + Zod
+
+**Data de implementação:** 17 de Setembro, 2025
+**Versão:** 2.2 - Forms Validation Upgrade
+
+### **✅ Implementações Realizadas:**
+
+#### **1. Dependências Adicionadas**
+```json
+{
+  "zod": "^3.25.76",
+  "react-hook-form": "^7.62.0",
+  "@hookform/resolvers": "^5.2.2"
+}
+```
+
+#### **2. Schema de Validação (src/schemas/search.ts)**
+```typescript
+export const searchSchema = z.object({
+  lineCode: z
+    .string()
+    .min(1, 'Digite o código da linha')
+    .regex(
+      /^[0-9]{4}-[0-9]{2}$|^[0-9]{3}[A-Z]-[0-9]{2}$/,
+      'Formato inválido. Use o padrão: 6824-10 ou 701U-10'
+    )
+    .transform((val) => val.toUpperCase()),
+});
+```
+
+#### **3. SearchBar Refatorado**
+
+**Antes (useState):**
+```typescript
+const [query, setQuery] = useState('');
+const [isValid, setIsValid] = useState(true);
+const inputRef = useRef<TextInput>(null);
+```
+
+**Depois (React Hook Form):**
+```typescript
+const {
+  control,
+  handleSubmit,
+  watch,
+  setValue,
+  setFocus,
+  reset,
+  formState: { errors, isValid },
+} = useForm<SearchFormData>({
+  resolver: zodResolver(searchSchema),
+  mode: 'onChange',
+});
+```
+
+#### **4. Recursos Nativos do RHF Utilizados**
+
+- **`Controller`**: Integração com TextInput
+- **`watch()`**: Monitoramento em tempo real para dropdowns
+- **`setFocus()`**: Foco programático no input
+- **`setValue()`**: Atualização com validação automática
+- **`reset()`**: Limpeza completa do formulário
+- **`handleSubmit()`**: Submissão com validação
+- **`formState.errors`**: Feedback visual de validação
+
+#### **5. Melhorias de UX Implementadas**
+
+1. **Validação em Tempo Real**
+   - Feedback instantâneo durante digitação
+   - Cores de erro (border vermelho)
+   - Mensagens de erro contextuais
+
+2. **Dropdown Intelligence**
+   - Fecha ao clicar fora (TouchableWithoutFeedback)
+   - Controle de estado `isFocused`
+   - Timing correto para seleções
+
+3. **Alinhamento Corrigido**
+   - Cursor inicia no começo do placeholder
+   - Texto alinhado naturalmente (removido textAlign="center")
+
+### **🎯 Padrões Estabelecidos**
+
+#### **Estrutura de Schema Zod**
+```typescript
+// 1. Validação básica
+.string()
+.min(1, 'Mensagem de erro')
+
+// 2. Validação com regex
+.regex(/pattern/, 'Formato inválido')
+
+// 3. Transformação de dados
+.transform((val) => val.toUpperCase())
+
+// 4. Tipagem automática
+export type FormData = z.infer<typeof schema>;
+```
+
+#### **Setup do React Hook Form**
+```typescript
+const form = useForm<FormData>({
+  resolver: zodResolver(schema),
+  mode: 'onChange', // Validação em tempo real
+  defaultValues: { field: '' },
+});
+```
+
+#### **Controller Pattern**
+```typescript
+<Controller
+  control={control}
+  name="fieldName"
+  render={({ field: { onChange, value, onBlur, ref } }) => (
+    <TextInput
+      ref={ref}
+      value={value}
+      onChangeText={onChange}
+      onBlur={onBlur}
+    />
+  )}
+/>
+```
+
+### **🔮 Oportunidades Futuras**
+
+**Formulários Identificados para Implementação:**
+
+1. **Configurações de Usuário**
+   - Preferências de notificação
+   - Raio de busca padrão
+   - Tema da aplicação
+
+2. **Feedback/Report**
+   - Reportar problema com linha
+   - Sugestões de melhoria
+   - Avaliação do app
+
+3. **Filtros Avançados**
+   - Busca por região
+   - Filtros de horário
+   - Tipos de veículo
+
+### **📊 Benefícios Conquistados**
+
+- **Type Safety**: Validação + TypeScript automático
+- **Performance**: Menos re-renders com RHF
+- **UX**: Feedback em tempo real
+- **Maintainability**: Código mais limpo e declarativo
+- **Consistency**: Padrão estabelecido para futuros forms
+
+### **🏗 Estrutura Atualizada**
+
+```
+src/
+├── schemas/
+│   └── search.ts           ✅ Zod schemas
+├── components/ui/
+│   └── search-bar.tsx      ✅ RHF + Zod integrado
+└── types/                  ✅ TypeScript automático
+```
+
+**🎉 O projeto agora possui validação de formulários profissional, pronto para expansão!**
+
+---
+
+*Desenvolvido com ❤️ seguindo as melhores práticas de desenvolvimento React Native + TypeScript + NativeWind + React Hook Form + Zod*

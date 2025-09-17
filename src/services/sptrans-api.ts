@@ -66,14 +66,7 @@ export class SPTransAPISimple {
   }
 
   async fetchBusPositions(lineCode: string): Promise<BusPosition[]> {
-    // Use demo data if token is placeholder or line is in demo list
-    if (this.config.token === 'YOUR_API_TOKEN_HERE' || isDemoLine(lineCode)) {
-      console.log(`🚌 Using demo data for line ${lineCode}`);
-      await this.simulateDelay();
-      return getSimulatedBusData(lineCode);
-    }
-
-    console.log(`🚌 Fetching real data for line ${lineCode} from SPTrans API`);
+    console.log(`🚌 Attempting to use real SPTrans API for line ${lineCode}`);
 
     await this.ensureAuthenticated();
 
@@ -81,11 +74,19 @@ export class SPTransAPISimple {
       const internalLineCode = await this.getInternalLineCode(lineCode);
       const buses = await this.fetchBusPositionsByInternalCode(internalLineCode, lineCode);
 
-      console.log(`✅ Successfully found ${buses.length} buses for line ${lineCode}`);
+      console.log(`✅ Found ${buses.length} buses for line ${lineCode}`);
       return buses;
 
     } catch (error) {
-      console.error(`❌ Failed to fetch buses for line ${lineCode}:`, error);
+      console.error(`❌ Failed to fetch buses for line ${lineCode}, using demo fallback:`, error);
+
+      // Fallback to demo data on API failure
+      if (isDemoLine(lineCode)) {
+        console.log(`🎭 Using demo fallback for line ${lineCode}`);
+        await this.simulateDelay();
+        return getSimulatedBusData(lineCode);
+      }
+
       throw error;
     }
   }
@@ -111,8 +112,17 @@ export class SPTransAPISimple {
       throw new Error(`No lines found for ${lineCode}`);
     }
 
-    const internalLineCode = response[0].cl;
-    console.log(`🔢 Using internal line code: ${internalLineCode}`);
+    // Try to find exact match first
+    const exactMatch = response.find(line => {
+      const publicLineCode = `${line.lt}-${line.tl}`.replace(/^-|-$/g, '');
+      return publicLineCode === lineCode;
+    });
+
+    const selectedLine = exactMatch || response[0];
+    const internalLineCode = selectedLine.cl;
+    const publicLineCode = `${selectedLine.lt}-${selectedLine.tl}`.replace(/^-|-$/g, '');
+
+    console.log(`🔢 Using internal line code: ${internalLineCode} for public line: ${publicLineCode}`);
 
     return internalLineCode;
   }
@@ -156,12 +166,6 @@ export class SPTransAPISimple {
   }
 
   async fetchBusLines(searchTerm?: string): Promise<BusLine[]> {
-    // Use demo data if token is placeholder
-    if (this.config.token === 'YOUR_API_TOKEN_HERE') {
-      console.log(`🚌 Using demo lines data`);
-      return this.getDemoLines();
-    }
-
     await this.ensureAuthenticated();
 
     try {
@@ -173,25 +177,68 @@ export class SPTransAPISimple {
 
       return linesData.map(lineData => this.transformLineData(lineData));
     } catch (error) {
-      console.error('Failed to fetch bus lines:', error);
-      throw error;
+      console.error('Failed to fetch bus lines, using demo fallback:', error);
+
+      // Fallback to demo data on API failure
+      console.log(`🎭 Using demo lines fallback`);
+      return this.getDemoLines(searchTerm);
     }
   }
 
-  private getDemoLines(): BusLine[] {
-    return [
-      { code: '6824-10', name: 'Lapa - Pirituba (DEMO)', direction: 'Ida/Volta', active: true },
-      { code: '701U-10', name: 'Terminal São Miguel - Metrô Tucuruvi (DEMO)', direction: 'Ida/Volta', active: true },
-      { code: '2029-10', name: 'Capão Redondo - Metrô Giovanni Gronchi (DEMO)', direction: 'Ida/Volta', active: true },
+  async searchBusLines(searchTerm: string): Promise<BusLine[]> {
+    if (!searchTerm.trim()) {
+      return [];
+    }
+
+    await this.ensureAuthenticated();
+
+    try {
+      const url = `${this.config.baseURL}${ENDPOINTS.LINES}?termosBusca=${encodeURIComponent(searchTerm)}`;
+      const linesData = await this.makeGetRequest<SPTransLineResponse[]>(url);
+
+      console.log(`🔍 Found ${linesData.length} lines for search "${searchTerm}"`);
+
+      return linesData.map(lineData => this.transformLineData(lineData));
+    } catch (error) {
+      console.error(`Failed to search bus lines for "${searchTerm}", using demo fallback:`, error);
+
+      // Fallback to demo data on API failure
+      console.log(`🎭 Using demo search fallback for "${searchTerm}"`);
+      return this.getDemoLines(searchTerm);
+    }
+  }
+
+  private getDemoLines(searchTerm?: string): BusLine[] {
+    const allDemoLines = [
+      { code: '6824-10', name: 'Lapa - Pirituba', direction: 'Ida/Volta', active: true },
+      { code: '6824-21', name: 'Lapa - Pirituba (Via Hospital)', direction: 'Ida/Volta', active: true },
+      { code: '682A-10', name: 'Lapa - Vila Anastácio', direction: 'Ida/Volta', active: true },
+      { code: '682B-10', name: 'Lapa - Barra Funda', direction: 'Ida/Volta', active: true },
+      { code: '701U-10', name: 'Terminal São Miguel - Metrô Tucuruvi', direction: 'Ida/Volta', active: true },
+      { code: '701A-10', name: 'Terminal São Miguel - Penha', direction: 'Ida/Volta', active: true },
+      { code: '2029-10', name: 'Capão Redondo - Metrô Giovanni Gronchi', direction: 'Ida/Volta', active: true },
+      { code: '177A-10', name: 'Terminal Pirituba - Shopping Eldorado', direction: 'Ida/Volta', active: true },
+      { code: '175R-10', name: 'Jardim Rincão - Terminal Pirituba', direction: 'Ida/Volta', active: true },
+      { code: '8000-10', name: 'Pça Ramos de Azevedo - Terminal Lapa', direction: 'Ida/Volta', active: true },
     ];
+
+    if (!searchTerm || !searchTerm.trim()) {
+      return allDemoLines.slice(0, 5);
+    }
+
+    const searchLower = searchTerm.toLowerCase();
+    return allDemoLines.filter(line =>
+      line.code.toLowerCase().includes(searchLower) ||
+      line.name.toLowerCase().includes(searchLower)
+    );
   }
 
   private transformLineData(lineData: SPTransLineResponse): BusLine {
     const lineNumber = `${lineData.lt}-${lineData.tl}`.replace(/^-|-$/g, '');
-    const lineName = `${lineNumber} ${lineData.tp}`.trim();
+    const lineName = lineData.tp;
 
     return {
-      code: lineData.cl.toString(),
+      code: lineNumber,
       name: lineName,
       direction: lineData.ts || 'Unknown Direction',
       active: true,

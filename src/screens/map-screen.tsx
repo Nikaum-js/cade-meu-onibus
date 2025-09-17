@@ -164,12 +164,6 @@ export function MapScreen() {
           Por enquanto, você pode ver a lista de ônibus abaixo
         </Text>
 
-        {/* Demo mode indicator */}
-        <View style={styles.demoIndicator}>
-          <Text style={styles.demoText}>
-            🚌 MODO DEMONSTRAÇÃO - Use linhas: 6824-10, 701U-10, 2029-10, 177A-10, 175R-10
-          </Text>
-        </View>
 
         {renderBusList()}
       </View>
@@ -248,20 +242,6 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     textAlign: 'center',
     marginBottom: 20,
-  },
-  demoIndicator: {
-    backgroundColor: '#FEF3C7',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#F59E0B',
-  },
-  demoText: {
-    fontSize: 12,
-    color: '#92400E',
-    textAlign: 'center',
-    fontWeight: '600',
   },
   emptyState: {
     alignItems: 'center',

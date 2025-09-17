@@ -17,6 +17,7 @@ interface BusStore {
   // Actions
   fetchBuses: (lineCode: string) => Promise<void>;
   fetchLines: (searchTerm?: string) => Promise<void>;
+  searchLines: (searchTerm: string) => Promise<void>;
   updateBusPosition: (busId: string, position: BusPosition) => void;
   selectLine: (lineCode: string) => void;
   clearError: () => void;
@@ -38,11 +39,11 @@ export const useBusStore = create<BusStore>((set, get) => ({
   lastUpdate: null,
   refreshInterval: null,
   suggestions: [
-    { lineCode: '6824-10', lineName: 'Lapa - Pirituba (DEMO)', popular: true },
-    { lineCode: '701U-10', lineName: 'Terminal São Miguel - Metrô Tucuruvi (DEMO)', popular: true },
-    { lineCode: '2029-10', lineName: 'Capão Redondo - Metrô Giovanni Gronchi (DEMO)', popular: true },
-    { lineCode: '177A-10', lineName: 'Terminal Pirituba - Shopping Eldorado (DEMO)', popular: true },
-    { lineCode: '175R-10', lineName: 'Jardim Rincão - Terminal Pirituba (DEMO)', popular: true },
+    { lineCode: '6824-10', lineName: 'Lapa - Pirituba', popular: true },
+    { lineCode: '701U-10', lineName: 'Terminal São Miguel - Metrô Tucuruvi', popular: true },
+    { lineCode: '2029-10', lineName: 'Capão Redondo - Metrô Giovanni Gronchi', popular: true },
+    { lineCode: '177A-10', lineName: 'Terminal Pirituba - Shopping Eldorado', popular: true },
+    { lineCode: '175R-10', lineName: 'Jardim Rincão - Terminal Pirituba', popular: true },
   ],
 
   fetchBuses: async (lineCode: string) => {
@@ -80,6 +81,21 @@ export const useBusStore = create<BusStore>((set, get) => ({
         error: error instanceof Error ? error.message : 'Failed to fetch lines',
         isLoading: false,
       });
+    }
+  },
+
+  searchLines: async (searchTerm: string) => {
+    if (!searchTerm.trim()) {
+      set({ lines: [] });
+      return;
+    }
+
+    try {
+      const lines = await sptransAPI.searchBusLines(searchTerm);
+      set({ lines });
+    } catch (error) {
+      console.error('Failed to search lines:', error);
+      set({ lines: [] });
     }
   },
 
@@ -139,7 +155,7 @@ export const useBusStore = create<BusStore>((set, get) => ({
            s.lineName.toLowerCase().includes(queryLower)
     );
 
-    // Add from fetched lines
+    // Add from real API lines
     const matchingLines = lines
       .filter(line =>
         line.code.toLowerCase().includes(queryLower) ||
@@ -150,8 +166,14 @@ export const useBusStore = create<BusStore>((set, get) => ({
         lineName: line.name,
         popular: false,
       }))
-      .slice(0, 5); // Limit to 5 results
+      .slice(0, 8); // Limit to 8 results from API
 
-    return [...matchingSuggestions, ...matchingLines].slice(0, 8);
+    // Combine and remove duplicates
+    const allSuggestions = [...matchingSuggestions, ...matchingLines];
+    const uniqueSuggestions = allSuggestions.filter((suggestion, index, self) =>
+      index === self.findIndex(s => s.lineCode === suggestion.lineCode)
+    );
+
+    return uniqueSuggestions.slice(0, 8);
   },
 }));

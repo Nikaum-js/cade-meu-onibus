@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   TextInput,
@@ -9,6 +9,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import debounce from 'lodash.debounce';
 import { validateLineCode } from '../../utils/api';
 import { useBusStore } from '../../stores/bus-store';
 import type { SearchSuggestion } from '../../types/api';
@@ -29,13 +30,33 @@ export function SearchBar({
   const [isValid, setIsValid] = useState(true);
   const inputRef = useRef<TextInput>(null);
 
-  const { getSuggestionsForSearch } = useBusStore();
+  const { getSuggestionsForSearch, searchLines, lines } = useBusStore();
+
+  // Create debounced search function
+  const debouncedSearch = useCallback(
+    debounce((searchTerm: string) => {
+      if (searchTerm.trim().length >= 2) {
+        searchLines(searchTerm);
+      }
+    }, 300),
+    [searchLines]
+  );
+
+  // Cleanup debounced function on unmount
+  useEffect(() => {
+    return () => {
+      debouncedSearch.cancel();
+    };
+  }, [debouncedSearch]);
 
   const suggestions = getSuggestionsForSearch(query);
 
   const handleQueryChange = (text: string) => {
     setQuery(text);
     setShowSuggestions(text.length > 0);
+
+    // Trigger debounced search for autocomplete
+    debouncedSearch(text);
 
     if (text.length > 0) {
       const valid = validateLineCode(text);
@@ -89,11 +110,6 @@ export function SearchBar({
             {item.lineName}
           </Text>
         </View>
-        {item.popular && (
-          <View style={styles.popularBadge}>
-            <Text style={styles.popularText}>Popular</Text>
-          </View>
-        )}
       </View>
     </TouchableOpacity>
   );
@@ -257,16 +273,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginTop: 2,
-  },
-  popularBadge: {
-    backgroundColor: '#059669',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  popularText: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: 'white',
   },
 });

@@ -189,79 +189,43 @@ export class SPTransAPISimple {
 
       console.log(`📋 API RESPONSE - Found ${linesData.length} lines for search "${searchTerm}"`);
 
-      // Group lines by public code to merge both directions
-      const groupedLines = this.groupLinesByCode(linesData);
+      // Transform each line individually (keep directions separate)
+      const transformedLines = linesData.map(lineData => this.transformLineData(lineData));
 
-      console.log(`🔄 Grouped ${linesData.length} raw lines into ${groupedLines.length} unique lines`);
+      console.log(`✅ Final transformed lines:`, JSON.stringify(transformedLines, null, 2));
 
-      return groupedLines;
+      return transformedLines;
     } catch (error) {
       console.error(`❌ API Error for search "${searchTerm}":`, error);
       return [];
     }
   }
 
-  private groupLinesByCode(linesData: SPTransLineResponse[]): BusLine[] {
-    const groupedMap = new Map<string, SPTransLineResponse[]>();
-
-    // Group by public line code
-    linesData.forEach(line => {
-      const publicCode = `${line.lt}-${line.tl}`.replace(/^-|-$/g, '');
-      if (!groupedMap.has(publicCode)) {
-        groupedMap.set(publicCode, []);
-      }
-      groupedMap.get(publicCode)!.push(line);
-    });
-
-    // Transform grouped lines
-    const result: BusLine[] = [];
-    groupedMap.forEach((lines, publicCode) => {
-      if (lines.length === 1) {
-        // Single direction only
-        result.push(this.transformLineData(lines[0]));
-      } else {
-        // Multiple directions - create combined display
-        const ida = lines.find(l => l.sl === 1);
-        const volta = lines.find(l => l.sl === 2);
-
-        if (ida && volta) {
-          result.push({
-            code: publicCode,
-            name: `${ida.tp} ↔ ${volta.tp}`,
-            direction: 'ambos',
-            active: true,
-          });
-        } else {
-          // Fallback to single direction
-          result.push(this.transformLineData(lines[0]));
-        }
-      }
-    });
-
-    console.log(`✅ Final grouped lines:`, JSON.stringify(result, null, 2));
-    return result;
-  }
 
 
   private transformLineData(lineData: SPTransLineResponse): BusLine {
     const lineNumber = `${lineData.lt}-${lineData.tl}`.replace(/^-|-$/g, '');
 
-    // Choose terminal based on direction for better variety
+    // Show direction clearly: "Ida: Terminal" or "Volta: Terminal"
+    let directionLabel = '';
     let terminalName = '';
+
     if (lineData.sl === 1) {
-      // Direction 1: Primary to Secondary - show primary
-      terminalName = lineData.tp || '';
+      directionLabel = 'Ida';
+      terminalName = lineData.tp || 'Terminal desconhecido';
     } else {
-      // Direction 2: Secondary to Primary - show secondary
-      terminalName = lineData.ts || lineData.tp || '';
+      directionLabel = 'Volta';
+      terminalName = lineData.ts || lineData.tp || 'Terminal desconhecido';
     }
 
-    console.log(`🏷️ Direction ${lineData.sl}: Using terminal "${terminalName}" (tp: "${lineData.tp}", ts: "${lineData.ts}")`);
+    const displayName = `${directionLabel}: ${terminalName}`;
+
+    console.log(`🏷️ Line ${lineNumber} - Direction ${lineData.sl}: ${displayName}`);
 
     return {
       code: lineNumber,
-      name: terminalName,
-      direction: lineData.sl === 1 ? 'Ida' : 'Volta',
+      name: displayName,
+      direction: directionLabel,
       active: true,
     };
   }

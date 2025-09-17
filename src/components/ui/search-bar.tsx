@@ -75,6 +75,7 @@ export function SearchBar({
   // Watch for changes in line code to trigger debounced search for autocomplete
   useEffect(() => {
     if (isFocused && watchedLineCode.trim().length >= 2) {
+      // Use original input for API search (não normalizar aqui)
       debouncedSearch(watchedLineCode);
     }
   }, [watchedLineCode, debouncedSearch, isFocused]);

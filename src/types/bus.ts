@@ -18,6 +18,20 @@ export interface BusLine {
   active: boolean;
 }
 
+export interface BusLineDirection {
+  cl: number; // Código interno da SPTrans
+  terminal: string;
+  direction: 'ida' | 'volta';
+}
+
+export interface BusLineComplete {
+  code: string; // "6824-10"
+  ida: BusLineDirection;
+  volta: BusLineDirection;
+  circular: boolean;
+  displayName: string; // "6824-10: TERM. CAPELINHA ↔ PQ. FERNANDA"
+}
+
 export interface BusRoute {
   lineCode: string;
   coordinates: Array<{

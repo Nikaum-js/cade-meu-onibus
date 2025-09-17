@@ -51,13 +51,14 @@ export function SearchBar({
   });
 
   const watchedLineCode = watch('lineCode');
-  const showSuggestions = isFocused && watchedLineCode.length > 0 && watchedLineCode.length < 7;
+  const showSuggestions = isFocused && watchedLineCode.length > 0;
   const showHistory = isFocused && watchedLineCode.length === 0;
 
-  // Create debounced search function for autocomplete
+  // Create debounced search function for autocomplete (only for dropdown suggestions)
   const debouncedSearch = useCallback(
     debounce((searchTerm: string) => {
       if (searchTerm.trim().length >= 2) {
+        console.log(`🔍 Triggering autocomplete search for: "${searchTerm}"`);
         searchLines(searchTerm);
       }
     }, 300),
@@ -71,12 +72,12 @@ export function SearchBar({
     };
   }, [debouncedSearch]);
 
-  // Watch for changes in line code to trigger debounced search
+  // Watch for changes in line code to trigger debounced search for autocomplete
   useEffect(() => {
-    if (watchedLineCode.trim().length >= 2) {
+    if (isFocused && watchedLineCode.trim().length >= 2) {
       debouncedSearch(watchedLineCode);
     }
-  }, [watchedLineCode, debouncedSearch]);
+  }, [watchedLineCode, debouncedSearch, isFocused]);
 
   const suggestions = getSuggestionsForSearch(watchedLineCode);
 

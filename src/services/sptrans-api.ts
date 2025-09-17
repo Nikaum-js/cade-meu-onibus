@@ -1,5 +1,5 @@
 import { API_CONFIG, ENDPOINTS } from '../constants/api';
-import type { BusPosition, BusLine, BusStatus } from '../types/bus';
+import type { BusPosition, BusLine, BusStatus, BusLineComplete } from '../types/bus';
 
 // API Response types from SPTrans documentation
 interface SPTransLineResponse {
@@ -188,45 +188,58 @@ export class SPTransAPISimple {
       const linesData = await this.makeGetRequest<SPTransLineResponse[]>(url);
 
       console.log(`📋 API RESPONSE - Found ${linesData.length} lines for search "${searchTerm}"`);
-      console.log(`📄 Raw API Response:`, JSON.stringify(linesData, null, 2));
 
-      // Log each line details for debugging
-      linesData.forEach((line, index) => {
-        console.log(`🚌 Line ${index + 1}:`, {
-          internalCode: line.cl,
-          publicCode: `${line.lt}-${line.tl}`,
-          primaryTerminal: line.tp,
-          secondaryTerminal: line.ts,
-          direction: line.sl,
-          circular: line.lc,
-          rawData: line
-        });
-      });
+      // Group lines by public code to merge both directions
+      const groupedLines = this.groupLinesByCode(linesData);
 
-      console.log(`🔍 ANALYSIS: Different terminals found:`);
-      const uniqueTerminals = new Set();
-      linesData.forEach(line => {
-        uniqueTerminals.add(`Primary: ${line.tp}`);
-        uniqueTerminals.add(`Secondary: ${line.ts}`);
-      });
-      console.log(`📍 Unique terminals:`, Array.from(uniqueTerminals));
+      console.log(`🔄 Grouped ${linesData.length} raw lines into ${groupedLines.length} unique lines`);
 
-      const transformedLines = linesData.map(lineData => {
-        const transformed = this.transformLineData(lineData);
-        console.log(`🔄 Transformed: ${JSON.stringify(lineData)} → ${JSON.stringify(transformed)}`);
-        return transformed;
-      });
-
-      console.log(`✅ Final transformed lines:`, JSON.stringify(transformedLines, null, 2));
-
-      return transformedLines;
+      return groupedLines;
     } catch (error) {
       console.error(`❌ API Error for search "${searchTerm}":`, error);
-
-      // Return empty array on API failure
-      console.log(`❌ API failed, returning empty results for "${searchTerm}"`);
       return [];
     }
+  }
+
+  private groupLinesByCode(linesData: SPTransLineResponse[]): BusLine[] {
+    const groupedMap = new Map<string, SPTransLineResponse[]>();
+
+    // Group by public line code
+    linesData.forEach(line => {
+      const publicCode = `${line.lt}-${line.tl}`.replace(/^-|-$/g, '');
+      if (!groupedMap.has(publicCode)) {
+        groupedMap.set(publicCode, []);
+      }
+      groupedMap.get(publicCode)!.push(line);
+    });
+
+    // Transform grouped lines
+    const result: BusLine[] = [];
+    groupedMap.forEach((lines, publicCode) => {
+      if (lines.length === 1) {
+        // Single direction only
+        result.push(this.transformLineData(lines[0]));
+      } else {
+        // Multiple directions - create combined display
+        const ida = lines.find(l => l.sl === 1);
+        const volta = lines.find(l => l.sl === 2);
+
+        if (ida && volta) {
+          result.push({
+            code: publicCode,
+            name: `${ida.tp} ↔ ${volta.tp}`,
+            direction: 'ambos',
+            active: true,
+          });
+        } else {
+          // Fallback to single direction
+          result.push(this.transformLineData(lines[0]));
+        }
+      }
+    });
+
+    console.log(`✅ Final grouped lines:`, JSON.stringify(result, null, 2));
+    return result;
   }
 
 

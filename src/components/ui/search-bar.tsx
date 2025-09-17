@@ -120,17 +120,20 @@ export function SearchBar({
     <TouchableOpacity
       style={styles.suggestionItem}
       onPress={() => handleSuggestionPress(item)}
-      activeOpacity={0.7}
+      activeOpacity={0.8}
     >
       <View style={styles.suggestionContent}>
         <View style={styles.suggestionIcon}>
-          <Ionicons name="bus" size={16} color="#1E40AF" />
+          <Ionicons name="bus" size={18} color="#FFFFFF" />
         </View>
-        <View style={styles.suggestionText}>
+        <View style={styles.suggestionTextContainer}>
           <Text style={styles.suggestionCode}>{item.lineCode}</Text>
           <Text style={styles.suggestionName} numberOfLines={1}>
             {item.lineName}
           </Text>
+        </View>
+        <View style={styles.suggestionArrow}>
+          <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
         </View>
       </View>
     </TouchableOpacity>
@@ -259,49 +262,61 @@ const styles = StyleSheet.create({
     top: '100%',
     left: 0,
     right: 0,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    marginTop: 4,
-    maxHeight: 250,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    marginTop: 8,
+    maxHeight: 280,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   suggestionsList: {
-    maxHeight: 250,
+    maxHeight: 280,
   },
   suggestionItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#F8FAFC',
   },
   suggestionContent: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   suggestionIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#1E40AF20',
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#1E40AF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
+    marginRight: 16,
+    shadowColor: '#1E40AF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  suggestionText: {
+  suggestionTextContainer: {
     flex: 1,
   },
   suggestionCode: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
     color: '#1F2937',
+    letterSpacing: 0.3,
   },
   suggestionName: {
     fontSize: 14,
-    color: '#6B7280',
-    marginTop: 2,
+    color: '#64748B',
+    marginTop: 4,
+    fontWeight: '500',
+  },
+  suggestionArrow: {
+    opacity: 0.6,
   },
 });

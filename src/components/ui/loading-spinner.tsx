@@ -26,7 +26,7 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
+    padding: 32,
   },
   overlayContainer: {
     position: 'absolute',
@@ -34,15 +34,17 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'rgba(30, 41, 59, 0.5)',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 9999,
   },
   message: {
-    marginTop: 16,
+    marginTop: 20,
     fontSize: 16,
-    color: '#1F2937',
+    color: '#FFFFFF',
     textAlign: 'center',
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
 });

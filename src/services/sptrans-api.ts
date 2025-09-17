@@ -200,9 +200,18 @@ export class SPTransAPISimple {
           primaryTerminal: line.tp,
           secondaryTerminal: line.ts,
           direction: line.sl,
-          circular: line.lc
+          circular: line.lc,
+          rawData: line
         });
       });
+
+      console.log(`🔍 ANALYSIS: Different terminals found:`);
+      const uniqueTerminals = new Set();
+      linesData.forEach(line => {
+        uniqueTerminals.add(`Primary: ${line.tp}`);
+        uniqueTerminals.add(`Secondary: ${line.ts}`);
+      });
+      console.log(`📍 Unique terminals:`, Array.from(uniqueTerminals));
 
       const transformedLines = linesData.map(lineData => {
         const transformed = this.transformLineData(lineData);
@@ -226,22 +235,21 @@ export class SPTransAPISimple {
   private transformLineData(lineData: SPTransLineResponse): BusLine {
     const lineNumber = `${lineData.lt}-${lineData.tl}`.replace(/^-|-$/g, '');
 
-    // Use appropriate terminal based on direction
-    const primaryTerminal = lineData.tp || '';
-    const secondaryTerminal = lineData.ts || '';
-
-    // For direction 1: show primary → secondary
-    // For direction 2: show secondary → primary
-    let lineName = '';
+    // Choose terminal based on direction for better variety
+    let terminalName = '';
     if (lineData.sl === 1) {
-      lineName = `${primaryTerminal} → ${secondaryTerminal}`;
+      // Direction 1: Primary to Secondary - show primary
+      terminalName = lineData.tp || '';
     } else {
-      lineName = `${secondaryTerminal} → ${primaryTerminal}`;
+      // Direction 2: Secondary to Primary - show secondary
+      terminalName = lineData.ts || lineData.tp || '';
     }
+
+    console.log(`🏷️ Direction ${lineData.sl}: Using terminal "${terminalName}" (tp: "${lineData.tp}", ts: "${lineData.ts}")`);
 
     return {
       code: lineNumber,
-      name: lineName,
+      name: terminalName,
       direction: lineData.sl === 1 ? 'Ida' : 'Volta',
       active: true,
     };

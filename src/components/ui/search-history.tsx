@@ -55,13 +55,16 @@ export function SearchHistory({ onSelectHistory, visible }: SearchHistoryProps) 
     <TouchableOpacity
       style={styles.historyItem}
       onPress={() => onSelectHistory(item)}
-      activeOpacity={0.7}
+      activeOpacity={0.8}
     >
       <View style={styles.historyContent}>
         <View style={styles.historyIcon}>
-          <Ionicons name="time" size={16} color="#6B7280" />
+          <Ionicons name="time" size={18} color="#FFFFFF" />
         </View>
-        <Text style={styles.historyText}>{item}</Text>
+        <View style={styles.historyTextContainer}>
+          <Text style={styles.historyText}>{item}</Text>
+          <Text style={styles.historySubtext}>Busca recente</Text>
+        </View>
         <TouchableOpacity
           style={styles.removeButton}
           onPress={() => handleRemoveItem(item)}
@@ -113,79 +116,99 @@ export function SearchHistory({ onSelectHistory, visible }: SearchHistoryProps) 
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    marginTop: 4,
-    maxHeight: 300,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    marginTop: 8,
+    maxHeight: 320,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 12,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#F8FAFC',
   },
   headerText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1F2937',
   },
   clearButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#FEF2F2',
   },
   clearButtonText: {
     fontSize: 12,
     color: '#DC2626',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   list: {
-    maxHeight: 200,
+    maxHeight: 240,
   },
   listContent: {
     paddingBottom: 8,
   },
   historyItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: '#F8FAFC',
   },
   historyContent: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   historyIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F3F4F6',
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#64748B',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 16,
+    shadowColor: '#64748B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  historyTextContainer: {
+    flex: 1,
   },
   historyText: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 17,
+    fontWeight: '700',
     color: '#1F2937',
+    letterSpacing: 0.3,
+  },
+  historySubtext: {
+    fontSize: 13,
+    color: '#64748B',
+    marginTop: 2,
+    fontWeight: '500',
   },
   removeButton: {
     padding: 8,
+    borderRadius: 8,
   },
   loadingContainer: {
-    padding: 20,
+    padding: 24,
     alignItems: 'center',
   },
   loadingText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: '#64748B',
+    fontWeight: '500',
   },
 });

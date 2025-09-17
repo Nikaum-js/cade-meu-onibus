@@ -6,7 +6,6 @@ import {
   FlatList,
   Text,
   Keyboard,
-  StyleSheet,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import debounce from 'lodash.debounce';
@@ -118,21 +117,21 @@ export function SearchBar({
 
   const renderSuggestion = ({ item }: { item: SearchSuggestion }) => (
     <TouchableOpacity
-      style={styles.suggestionItem}
+      className="px-5 py-4 border-b border-gray-50"
       onPress={() => handleSuggestionPress(item)}
       activeOpacity={0.8}
     >
-      <View style={styles.suggestionContent}>
-        <View style={styles.suggestionIcon}>
+      <View className="flex-row items-center">
+        <View className="w-10 h-10 rounded-xl bg-primary-500 items-center justify-center mr-4 shadow-sm">
           <Ionicons name="bus" size={18} color="#FFFFFF" />
         </View>
-        <View style={styles.suggestionTextContainer}>
-          <Text style={styles.suggestionCode}>{item.lineCode}</Text>
-          <Text style={styles.suggestionName} numberOfLines={1}>
+        <View className="flex-1">
+          <Text className="text-lg font-bold text-gray-800">{item.lineCode}</Text>
+          <Text className="text-sm text-gray-600 mt-1 font-medium" numberOfLines={1}>
             {item.lineName}
           </Text>
         </View>
-        <View style={styles.suggestionArrow}>
+        <View className="opacity-60">
           <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
         </View>
       </View>
@@ -140,15 +139,15 @@ export function SearchBar({
   );
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.searchContainer, !isValid && styles.searchContainerError]}>
-        <View style={styles.searchIconContainer}>
+    <View className="z-50">
+      <View className={`flex-row items-center bg-gray-100 rounded-xl px-4 py-2 shadow-sm ${!isValid ? 'border border-red-600' : ''}`}>
+        <View className="mr-2">
           <Ionicons name="search" size={20} color="#6B7280" />
         </View>
 
         <TextInput
           ref={inputRef}
-          style={styles.searchInput}
+          className="flex-1 text-base text-gray-800 py-1"
           value={query}
           onChangeText={handleQueryChange}
           placeholder={placeholder}
@@ -166,7 +165,7 @@ export function SearchBar({
 
         {query.length > 0 && (
           <TouchableOpacity
-            style={styles.clearButton}
+            className="ml-2"
             onPress={handleClear}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
@@ -175,31 +174,31 @@ export function SearchBar({
         )}
 
         <TouchableOpacity
-          style={styles.searchButton}
+          className="ml-2 p-1"
           onPress={() => handleSearch()}
           disabled={!query.trim()}
         >
           <Ionicons
             name="arrow-forward"
             size={20}
-            color={query.trim() ? '#1E40AF' : '#6B7280'}
+            color={query.trim() ? '#b91c1c' : '#6B7280'}
           />
         </TouchableOpacity>
       </View>
 
       {!isValid && (
-        <Text style={styles.errorText}>
+        <Text className="text-red-600 text-xs mt-1 ml-4">
           Formato inválido. Use o padrão: 6824-10
         </Text>
       )}
 
       {showSuggestions && suggestions.length > 0 && (
-        <View style={styles.suggestionsContainer}>
+        <View className="absolute top-full left-0 right-0 bg-white rounded-2xl mt-2 max-h-72 shadow-xl border border-gray-100 z-50">
           <FlatList
             data={suggestions}
             renderItem={renderSuggestion}
             keyExtractor={(item, index) => `${item.lineCode}-${index}`}
-            style={styles.suggestionsList}
+            className="max-h-72"
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           />
@@ -214,109 +213,3 @@ export function SearchBar({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    zIndex: 1000,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  searchContainerError: {
-    borderWidth: 1,
-    borderColor: '#DC2626',
-  },
-  searchIconContainer: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: '#1F2937',
-    paddingVertical: 4,
-  },
-  clearButton: {
-    marginLeft: 8,
-  },
-  searchButton: {
-    marginLeft: 8,
-    padding: 4,
-  },
-  errorText: {
-    color: '#DC2626',
-    fontSize: 12,
-    marginTop: 4,
-    marginLeft: 16,
-  },
-  suggestionsContainer: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    marginTop: 8,
-    maxHeight: 280,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 12,
-    borderWidth: 1,
-    borderColor: '#F1F5F9',
-  },
-  suggestionsList: {
-    maxHeight: 280,
-  },
-  suggestionItem: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F8FAFC',
-  },
-  suggestionContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  suggestionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#1E40AF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 16,
-    shadowColor: '#1E40AF',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  suggestionTextContainer: {
-    flex: 1,
-  },
-  suggestionCode: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1F2937',
-    letterSpacing: 0.3,
-  },
-  suggestionName: {
-    fontSize: 14,
-    color: '#64748B',
-    marginTop: 4,
-    fontWeight: '500',
-  },
-  suggestionArrow: {
-    opacity: 0.6,
-  },
-});

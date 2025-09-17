@@ -2,6 +2,12 @@
 
 Aplicativo mobile para rastreamento em tempo real de ônibus da SPTrans em São Paulo.
 
+## ✅ STATUS: FUNCIONANDO COM API REAL!
+
+**Última atualização:** 16/09/2024
+**API SPTrans:** ✅ Integração completa e funcional
+**Teste confirmado:** Linha 6824-10 retornou 2 ônibus reais
+
 ## 🚀 Funcionalidades
 
 ### MVP - Versão 1.0

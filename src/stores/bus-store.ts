@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { SPTransAPISimple } from '../services/sptrans-api-simple';
+import { SPTransAPISimple } from '../services/sptrans-api';
 import type { BusPosition, BusLine } from '../types/bus';
 import type { SearchSuggestion } from '../types/api';
 

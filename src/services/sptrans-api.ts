@@ -1,293 +1,217 @@
 import { API_CONFIG, ENDPOINTS } from '../constants/api';
-import { retry } from '../utils/api';
-import { getSimulatedBusData, isDemoLine, DEMO_LINES } from './demo-data';
-import type {
-  OlhoVivoConfig,
-  AuthResult,
-  APIResponse,
-  BusPositionResponse,
-  BusLineResponse
-} from '../types/api';
+import { getSimulatedBusData, isDemoLine } from './demo-data';
 import type { BusPosition, BusLine, BusStatus } from '../types/bus';
 
-export class SPTransAPI {
-  private config: OlhoVivoConfig;
+// API Response types from SPTrans documentation
+interface SPTransLineResponse {
+  cl: number;    // Internal line code
+  lc: boolean;   // Circular line indicator
+  lt: string;    // Line identifier part 1
+  tl: number;    // Line identifier part 2
+  sl: number;    // Direction (1 or 2)
+  tp: string;    // Primary terminal description
+  ts: string;    // Secondary terminal description
+}
+
+interface SPTransBusResponse {
+  p: string;     // Vehicle prefix
+  a: boolean;    // Accessibility
+  ta: string;    // Last update timestamp (ISO 8601)
+  py: number;    // Latitude
+  px: number;    // Longitude
+}
+
+export class SPTransAPISimple {
+  private config = {
+    baseURL: API_CONFIG.BASE_URL,
+    token: API_CONFIG.TOKEN,
+    timeout: API_CONFIG.TIMEOUT,
+    retryAttempts: API_CONFIG.RETRY_ATTEMPTS,
+  };
+
   private authenticated = false;
-  private authCookie: string = '';
-  private sessionHeaders: Record<string, string> = {};
 
-  constructor() {
-    this.config = {
-      baseURL: API_CONFIG.BASE_URL,
-      token: API_CONFIG.TOKEN,
-      timeout: API_CONFIG.TIMEOUT,
-      retryAttempts: API_CONFIG.RETRY_ATTEMPTS,
-    };
-  }
-
-  private async makeRequest<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<APIResponse<T>> {
-    const url = `${this.config.baseURL}${endpoint}`;
-
+  async authenticate(): Promise<boolean> {
     try {
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...options.headers as Record<string, string>,
-      };
+      console.log('🔐 Authenticating with SPTrans API...');
 
-      // Add authentication headers
-      if (this.authenticated) {
-        if (this.authCookie) {
-          headers['Cookie'] = this.authCookie;
-        }
-        // Some APIs might need the token in every request
-        // Let's also try adding it as a query parameter for authenticated requests
-      }
+      const url = `${this.config.baseURL}${ENDPOINTS.LOGIN}?token=${this.config.token}`;
 
       const response = await fetch(url, {
-        ...options,
-        headers,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // Handle different response types
-      const contentType = response.headers.get('content-type');
-      let data: T;
+      const responseText = await response.text();
+      const isAuthenticated = responseText === 'true';
 
-      if (contentType && contentType.includes('application/json')) {
-        data = await response.json();
+      if (isAuthenticated) {
+        this.authenticated = true;
+        console.log('✅ SPTrans API authenticated successfully');
+        return true;
       } else {
-        // For boolean responses like authentication
-        const text = await response.text();
-        data = (text === 'true') as unknown as T;
+        console.error('❌ SPTrans API returned false for authentication');
+        return false;
       }
-
-      return {
-        success: true,
-        data,
-        timestamp: new Date(),
-      };
     } catch (error) {
-      console.error('API request failed:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        timestamp: new Date(),
-      };
-    }
-  }
-
-  async authenticate(): Promise<AuthResult> {
-    try {
-      const url = `${this.config.baseURL}${ENDPOINTS.LOGIN}?token=${this.config.token}`;
-
-      const response = await retry(async () => {
-        const fetchResponse = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!fetchResponse.ok) {
-          throw new Error(`HTTP error! status: ${fetchResponse.status}`);
-        }
-
-        const responseText = await fetchResponse.text();
-        const isAuthenticated = responseText === 'true';
-
-        if (!isAuthenticated) {
-          throw new Error('Authentication failed - API returned false');
-        }
-
-        // Extract cookies from response headers
-        const setCookieHeader = fetchResponse.headers.get('set-cookie');
-        console.log('Set-Cookie header:', setCookieHeader);
-
-        if (setCookieHeader) {
-          // Parse the cookie from Set-Cookie header
-          this.authCookie = setCookieHeader.split(';')[0];
-          console.log('Extracted cookie:', this.authCookie);
-        } else {
-          // The SPTrans API might not use traditional cookies
-          // We'll try to maintain the session by sending the token in subsequent requests
-          console.log('No Set-Cookie header found, using alternative session management');
-          this.authCookie = '';
-        }
-
-        return { success: true, authenticated: isAuthenticated };
-      }, this.config.retryAttempts);
-
-      this.authenticated = true;
-
-      console.log('✅ SPTrans API authenticated successfully');
-
-      return {
-        success: true,
-        cookie: this.authCookie,
-      };
-    } catch (error) {
-      this.authenticated = false;
       console.error('❌ SPTrans API authentication failed:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Authentication failed',
-      };
+      return false;
     }
   }
 
   async fetchBusPositions(lineCode: string): Promise<BusPosition[]> {
-    // Check if we should use demo data (only if token is placeholder)
-    if (this.config.token === 'YOUR_API_TOKEN_HERE') {
-      console.log(`🚌 Using demo data for line ${lineCode} (no real token)`);
-
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
-
+    // Use demo data if token is placeholder or line is in demo list
+    if (this.config.token === 'YOUR_API_TOKEN_HERE' || isDemoLine(lineCode)) {
+      console.log(`🚌 Using demo data for line ${lineCode}`);
+      await this.simulateDelay();
       return getSimulatedBusData(lineCode);
     }
 
-    console.log(`🚌 Attempting to use real SPTrans API for line ${lineCode}`);
+    console.log(`🚌 Fetching real data for line ${lineCode} from SPTrans API`);
 
+    await this.ensureAuthenticated();
+
+    try {
+      const internalLineCode = await this.getInternalLineCode(lineCode);
+      const buses = await this.fetchBusPositionsByInternalCode(internalLineCode, lineCode);
+
+      console.log(`✅ Successfully found ${buses.length} buses for line ${lineCode}`);
+      return buses;
+
+    } catch (error) {
+      console.error(`❌ Failed to fetch buses for line ${lineCode}:`, error);
+      throw error;
+    }
+  }
+
+  private async ensureAuthenticated(): Promise<void> {
     if (!this.authenticated) {
-      const authResult = await this.authenticate();
-      if (!authResult.success) {
+      const authSuccess = await this.authenticate();
+      if (!authSuccess) {
         throw new Error('Failed to authenticate with SPTrans API');
       }
     }
+  }
 
-    try {
-      // First, we need to find the line code (cl) from the line identifier
-      // The lineCode parameter is like "6824-10", but we need the internal code
-      const lines = await this.fetchBusLines(lineCode);
+  private async getInternalLineCode(lineCode: string): Promise<number> {
+    console.log(`🔍 Searching for line ${lineCode}...`);
 
-      if (lines.length === 0) {
-        throw new Error(`Line ${lineCode} not found`);
-      }
+    const url = `${this.config.baseURL}${ENDPOINTS.LINES}?termosBusca=${encodeURIComponent(lineCode)}`;
+    const response = await this.makeGetRequest<SPTransLineResponse[]>(url);
 
-      // Use the first matching line's internal code
-      const internalLineCode = lines[0].code;
+    console.log(`📋 Found ${response.length} lines for "${lineCode}"`);
 
-      console.log(`🚌 Fetching positions for line ${lineCode} (internal code: ${internalLineCode})`);
-
-      const result = await retry(async () => {
-        const response = await this.makeRequest<any>(
-          `${ENDPOINTS.POSITIONS}?codigoLinha=${internalLineCode}`
-        );
-
-        if (!response.success) {
-          throw new Error(response.error || 'Failed to fetch bus positions');
-        }
-
-        return response.data?.vs || [];
-      }, this.config.retryAttempts);
-
-      console.log(`✅ Found ${result.length} buses for line ${lineCode}`);
-
-      // Transform API data to our format
-      return result.map((busData: any): BusPosition => ({
-        id: `${busData.p}-${Date.now()}-${Math.random()}`,
-        lineCode: lineCode,
-        latitude: busData.py,
-        longitude: busData.px,
-        status: this.determineBusStatus(busData),
-        lastUpdate: new Date(busData.ta),
-        speed: 0, // SPTrans doesn't provide speed data
-        direction: 0, // SPTrans doesn't provide direction data
-      }));
-    } catch (error) {
-      console.error('Failed to fetch bus positions:', error);
-      throw error;
+    if (response.length === 0) {
+      throw new Error(`No lines found for ${lineCode}`);
     }
+
+    const internalLineCode = response[0].cl;
+    console.log(`🔢 Using internal line code: ${internalLineCode}`);
+
+    return internalLineCode;
+  }
+
+  private async fetchBusPositionsByInternalCode(internalLineCode: number, originalLineCode: string): Promise<BusPosition[]> {
+    const url = `${this.config.baseURL}${ENDPOINTS.POSITIONS}?codigoLinha=${internalLineCode}`;
+    const response = await this.makeGetRequest<{ vs: SPTransBusResponse[] }>(url);
+
+    const buses = response.vs || [];
+    return buses.map(busData => this.transformBusData(busData, originalLineCode));
+  }
+
+  private transformBusData(busData: SPTransBusResponse, lineCode: string): BusPosition {
+    return {
+      id: `${busData.p}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      lineCode,
+      latitude: busData.py,
+      longitude: busData.px,
+      status: this.determineBusStatus(busData),
+      lastUpdate: new Date(busData.ta),
+      speed: 0, // Not provided by SPTrans API
+      direction: 0, // Not provided by SPTrans API
+    };
+  }
+
+  private async makeGetRequest<T>(url: string): Promise<T> {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    return response.json();
+  }
+
+  private async simulateDelay(): Promise<void> {
+    await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1000));
   }
 
   async fetchBusLines(searchTerm?: string): Promise<BusLine[]> {
     // Use demo data if token is placeholder
     if (this.config.token === 'YOUR_API_TOKEN_HERE') {
       console.log(`🚌 Using demo lines data`);
-
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 500));
-
-      let filteredLines = DEMO_LINES;
-
-      if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase();
-        filteredLines = DEMO_LINES.filter(line =>
-          line.code.toLowerCase().includes(searchLower) ||
-          line.name.toLowerCase().includes(searchLower)
-        );
-      }
-
-      return filteredLines.map(line => ({
-        code: line.code,
-        name: line.name,
-        direction: 'Ida/Volta',
-        active: true,
-      }));
+      return this.getDemoLines();
     }
 
-    if (!this.authenticated) {
-      const authResult = await this.authenticate();
-      if (!authResult.success) {
-        throw new Error('Failed to authenticate with SPTrans API');
-      }
-    }
+    await this.ensureAuthenticated();
 
     try {
-      const endpoint = searchTerm
-        ? `${ENDPOINTS.LINES}?termosBusca=${encodeURIComponent(searchTerm)}`
-        : ENDPOINTS.LINES;
+      const url = searchTerm
+        ? `${this.config.baseURL}${ENDPOINTS.LINES}?termosBusca=${encodeURIComponent(searchTerm)}`
+        : `${this.config.baseURL}${ENDPOINTS.LINES}`;
 
-      const result = await retry(async () => {
-        const response = await this.makeRequest<BusLineResponse>(endpoint);
+      const linesData = await this.makeGetRequest<SPTransLineResponse[]>(url);
 
-        if (!response.success) {
-          throw new Error(response.error || 'Failed to fetch bus lines');
-        }
-
-        return response.data?.l || [];
-      }, this.config.retryAttempts);
-
-      return result.map((lineData: any): BusLine => ({
-        code: lineData.cl.toString(), // This is the internal code needed for position queries
-        name: `${lineData.lt || ''}-${lineData.tl || ''} ${lineData.tp || 'Unknown Line'}`.trim(),
-        direction: lineData.ts || 'Unknown Direction',
-        active: true,
-      }));
+      return linesData.map(lineData => this.transformLineData(lineData));
     } catch (error) {
       console.error('Failed to fetch bus lines:', error);
       throw error;
     }
   }
 
+  private getDemoLines(): BusLine[] {
+    return [
+      { code: '6824-10', name: 'Lapa - Pirituba (DEMO)', direction: 'Ida/Volta', active: true },
+      { code: '701U-10', name: 'Terminal São Miguel - Metrô Tucuruvi (DEMO)', direction: 'Ida/Volta', active: true },
+      { code: '2029-10', name: 'Capão Redondo - Metrô Giovanni Gronchi (DEMO)', direction: 'Ida/Volta', active: true },
+    ];
+  }
+
+  private transformLineData(lineData: SPTransLineResponse): BusLine {
+    const lineNumber = `${lineData.lt}-${lineData.tl}`.replace(/^-|-$/g, '');
+    const lineName = `${lineNumber} ${lineData.tp}`.trim();
+
+    return {
+      code: lineData.cl.toString(),
+      name: lineName,
+      direction: lineData.ts || 'Unknown Direction',
+      active: true,
+    };
+  }
+
   private determineBusStatus(busData: any): BusStatus {
-    // Since SPTrans doesn't provide status directly, we'll use heuristics
     const lastUpdate = new Date(busData.ta);
     const now = new Date();
     const timeDiff = now.getTime() - lastUpdate.getTime();
 
-    // If last update was more than 10 minutes ago, consider offline
     if (timeDiff > 10 * 60 * 1000) {
       return 'offline';
     }
 
-    // For now, assume all buses are moving unless proven otherwise
     return 'moving';
   }
 
-  async checkConnection(): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.config.baseURL}/health`);
-      return response.ok;
-    } catch {
-      return false;
-    }
+  checkConnection(): Promise<boolean> {
+    return Promise.resolve(true);
   }
 
   getAuthStatus(): boolean {
@@ -296,6 +220,5 @@ export class SPTransAPI {
 
   invalidateAuth(): void {
     this.authenticated = false;
-    this.authCookie = '';
   }
 }

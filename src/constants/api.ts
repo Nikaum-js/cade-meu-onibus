@@ -4,6 +4,8 @@ export const API_CONFIG = {
   TIMEOUT: 10000,
   RETRY_ATTEMPTS: 3,
   REFRESH_INTERVAL: 30000, // 30 seconds
+  AUTH_TIMEOUT: 15000, // 15 seconds for authentication
+  MAX_BUSES_PER_REQUEST: 100, // Limit for performance
 };
 
 export const ENDPOINTS = {

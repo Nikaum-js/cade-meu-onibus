@@ -156,12 +156,18 @@ export const useBusStore = create<BusStore>((set, get) => ({
 
     const queryLower = query.toLowerCase();
 
+    // Normalize query for matching (682410 → 6824-10)
+    const normalizedQuery = normalizeQueryForMatching(queryLower);
+    console.log(`💡 Normalized query for matching: "${query}" → "${normalizedQuery}"`);
+
     // Add from real API lines
     const matchingLines = lines
-      .filter(line =>
-        line.code.toLowerCase().includes(queryLower) ||
-        line.name.toLowerCase().includes(queryLower)
-      )
+      .filter(line => {
+        const codeMatch = line.code.toLowerCase().includes(queryLower) ||
+                         line.code.toLowerCase().includes(normalizedQuery);
+        const nameMatch = line.name.toLowerCase().includes(queryLower);
+        return codeMatch || nameMatch;
+      })
       .map(line => ({
         lineCode: line.code,
         lineName: line.name,
@@ -176,3 +182,20 @@ export const useBusStore = create<BusStore>((set, get) => ({
     return matchingLines.slice(0, 8);
   },
 }));
+
+// Helper function to normalize query for matching
+function normalizeQueryForMatching(query: string): string {
+  const trimmed = query.trim();
+
+  // Se tem 6+ caracteres e parece ser código completo sem hífen (ex: 682410, 701u10)
+  if (trimmed.length >= 6 && /^[0-9]{3,4}[a-z]?[0-9]{2}$/.test(trimmed)) {
+    // Adicionar hífen antes dos últimos 2 dígitos: 682410 → 6824-10
+    const match = trimmed.match(/^([0-9]{3,4}[a-z]?)([0-9]{2})$/);
+    if (match) {
+      return `${match[1]}-${match[2]}`;
+    }
+  }
+
+  // Caso contrário, retornar termo original
+  return trimmed;
+}

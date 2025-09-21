@@ -70,41 +70,94 @@ export class SPTransAPISimple {
 
   async fetchBusPositions(lineCode: string): Promise<BusPosition[]> {
     console.log(`🚌 Fetching buses for line ${lineCode} via API gateway`);
+    const timestamp = new Date().toISOString();
 
     try {
       // First, search for the line to get the lineId
-      const searchResponse = await this.makeGetRequest<APIResponse<LineSearchResponse[]>>(
-        `${this.config.baseURL}${ENDPOINTS.LINES_SEARCH}?query=${encodeURIComponent(lineCode)}`
-      );
+      const searchUrl = `${this.config.baseURL}${ENDPOINTS.LINES_SEARCH}?query=${encodeURIComponent(lineCode)}`;
+      console.log(`🔍 [${timestamp}] Search URL:`, searchUrl);
+
+      const searchResponse = await this.makeGetRequest<APIResponse<LineSearchResponse[]>>(searchUrl);
+
+      console.log(`📊 [${timestamp}] Search Response:`, {
+        success: searchResponse.success,
+        dataLength: searchResponse.data?.length || 0,
+        cached: searchResponse.meta?.cached,
+        responseTime: searchResponse.meta?.responseTime,
+      });
 
       if (!searchResponse.success || searchResponse.data.length === 0) {
         throw new Error(`No lines found for ${lineCode}`);
       }
 
       const line = searchResponse.data[0];
-      console.log(`🔢 Using line ID: ${line.lineId} for line: ${line.lineNumber}`);
+      console.log(`🔢 [${timestamp}] Using line ID: ${line.lineId} for line: ${line.lineNumber}`);
 
       // Get bus positions using the lineId
       const busesUrl = `${this.config.baseURL}${ENDPOINTS.LINES_BUSES.replace('{lineId}', line.lineId.toString())}`;
+      console.log(`🚍 [${timestamp}] Buses URL:`, busesUrl);
+
       const busesResponse = await this.makeGetRequest<APIResponse<BusPositionResponse>>(busesUrl);
 
+      console.log(`📊 [${timestamp}] Buses Response:`, {
+        success: busesResponse.success,
+        totalBuses: busesResponse.data?.totalBuses || 0,
+        busesArrayLength: busesResponse.data?.buses?.length || 0,
+        cached: busesResponse.meta?.cached,
+        responseTime: busesResponse.meta?.responseTime,
+        referenceTime: busesResponse.data?.referenceTime,
+      });
+
+      // Log raw buses data for debugging
+      if (busesResponse.data?.buses) {
+        console.log(`🔍 [${timestamp}] Raw buses data:`, busesResponse.data.buses);
+      }
+
       if (!busesResponse.success) {
+        console.error(`❌ [${timestamp}] API returned unsuccessful response for line ${lineCode}`);
         throw new Error(`Failed to fetch buses for line ${lineCode}`);
       }
 
+      if (!busesResponse.data || !busesResponse.data.buses) {
+        console.warn(`⚠️ [${timestamp}] No buses data in response for line ${lineCode}`);
+        return [];
+      }
+
       const buses = busesResponse.data.buses.map(busData => this.transformBusData(busData, lineCode));
-      console.log(`✅ Found ${buses.length} buses for line ${lineCode}`);
+      console.log(`✅ [${timestamp}] Found ${buses.length} buses for line ${lineCode}`);
+
+      // Log individual bus transformations for debugging
+      buses.forEach((bus, index) => {
+        console.log(`🚌 [${timestamp}] Bus ${index + 1}:`, {
+          id: bus.id,
+          status: bus.status,
+          lat: bus.latitude,
+          lng: bus.longitude,
+          lastUpdate: bus.lastUpdate.toISOString(),
+        });
+      });
 
       return buses;
 
     } catch (error) {
-      console.error(`❌ Failed to fetch buses for line ${lineCode}:`, error);
+      console.error(`❌ [${timestamp}] Failed to fetch buses for line ${lineCode}:`, error);
       throw error;
     }
   }
 
   private transformBusData(busData: BusPositionResponse['buses'][0], lineCode: string): BusPosition {
-    return {
+    const timestamp = new Date().toISOString();
+
+    console.log(`🔄 [${timestamp}] Transforming bus data:`, {
+      rawVehicleId: busData.vehicleId,
+      rawLatitude: busData.latitude,
+      rawLongitude: busData.longitude,
+      rawStatus: busData.status,
+      rawLastUpdate: busData.lastUpdate,
+      rawIsAccessible: busData.isAccessible,
+    });
+
+    const transformedBus = {
       id: `${busData.vehicleId}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
       lineCode,
       latitude: busData.latitude,
@@ -114,19 +167,42 @@ export class SPTransAPISimple {
       speed: 0, // Not provided by gateway
       direction: 0, // Not provided by gateway
     };
+
+    console.log(`✅ [${timestamp}] Transformed bus:`, {
+      id: transformedBus.id,
+      lineCode: transformedBus.lineCode,
+      latitude: transformedBus.latitude,
+      longitude: transformedBus.longitude,
+      status: transformedBus.status,
+      lastUpdate: transformedBus.lastUpdate.toISOString(),
+    });
+
+    return transformedBus;
   }
 
   private mapBusStatus(status: string): BusStatus {
-    switch (status.toLowerCase()) {
+    const normalizedStatus = status.toLowerCase();
+    const timestamp = new Date().toISOString();
+
+    let mappedStatus: BusStatus;
+    switch (normalizedStatus) {
       case 'active':
-        return 'moving';
+        mappedStatus = 'moving';
+        break;
       case 'inactive':
-        return 'offline';
+        mappedStatus = 'offline';
+        break;
       case 'stopped':
-        return 'stopped';
+        mappedStatus = 'stopped';
+        break;
       default:
-        return 'moving';
+        console.warn(`⚠️ [${timestamp}] Unknown bus status: "${status}", defaulting to 'moving'`);
+        mappedStatus = 'moving';
+        break;
     }
+
+    console.log(`🔄 [${timestamp}] Status mapping: "${status}" → "${mappedStatus}"`);
+    return mappedStatus;
   }
 
   private async makeGetRequest<T>(url: string): Promise<T> {

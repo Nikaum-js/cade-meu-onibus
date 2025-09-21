@@ -6,7 +6,7 @@ import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import { SearchBar } from '../components/ui/search-bar';
 import { LoadingSpinner } from '../components/ui/loading-spinner';
 import { ErrorMessage } from '../components/ui/error-message';
-import { BusMarker } from '../components/maps/bus-marker';
+import { BusMarker } from '../components/maps/bus-marker-simple';
 
 import { useBusStore } from '../stores/bus-store';
 import { useLocationStore } from '../stores/location-store';

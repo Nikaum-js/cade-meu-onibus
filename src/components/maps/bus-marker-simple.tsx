@@ -1,14 +1,6 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { View, Text } from 'react-native';
 import { Marker } from 'react-native-maps';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-  interpolate,
-  Easing
-} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import type { BusPosition } from '../../types/bus';
 
@@ -18,25 +10,6 @@ interface BusMarkerProps {
 }
 
 export function BusMarker({ bus, onPress }: BusMarkerProps) {
-  const scale = useSharedValue(1);
-  const pulse = useSharedValue(0);
-
-  useEffect(() => {
-    // Animação de entrada
-    scale.value = withTiming(1.1, { duration: 300 }, () => {
-      scale.value = withTiming(1, { duration: 200 });
-    });
-
-    // Animação de pulso para ônibus em movimento
-    if (bus.status === 'moving') {
-      pulse.value = withRepeat(
-        withTiming(1, { duration: 2000, easing: Easing.inOut(Easing.ease) }),
-        -1,
-        true
-      );
-    }
-  }, [bus.status]);
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'moving':
@@ -63,56 +36,22 @@ export function BusMarker({ bus, onPress }: BusMarkerProps) {
     }
   };
 
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ scale: scale.value }],
-    };
-  });
-
-  const pulseStyle = useAnimatedStyle(() => {
-    const opacity = interpolate(pulse.value, [0, 1], [0.3, 0.8]);
-    const pulseScale = interpolate(pulse.value, [0, 1], [1, 1.3]);
-
-    return {
-      opacity,
-      transform: [{ scale: pulseScale }],
-    };
-  });
-
   const CustomMarker = () => (
     <View className="items-center">
-      {/* Animação de pulso para ônibus em movimento */}
-      {bus.status === 'moving' && (
-        <Animated.View
-          className="absolute w-16 h-16 rounded-full border-2"
-          style={[
-            pulseStyle,
-            {
-              borderColor: getStatusColor(bus.status),
-              top: -2,
-              left: -2,
-            }
-          ]}
-        />
-      )}
-
-      {/* Marker principal animado */}
-      <Animated.View
-        className="w-12 h-12 rounded-full items-center justify-center shadow-xl border-3 border-white"
-        style={[
-          animatedStyle,
-          {
-            backgroundColor: getStatusColor(bus.status),
-            elevation: 8, // Sombra para Android
-          }
-        ]}
+      {/* Marker principal */}
+      <View
+        className="w-12 h-12 rounded-full items-center justify-center shadow-xl border-2 border-white"
+        style={{
+          backgroundColor: getStatusColor(bus.status),
+          elevation: 8, // Sombra para Android
+        }}
       >
         <Ionicons
           name={getStatusIcon(bus.status) as any}
           size={20}
           color="white"
         />
-      </Animated.View>
+      </View>
 
       {/* Número do ônibus */}
       <View className="absolute -bottom-6 bg-white px-2 py-1 rounded-lg shadow-md border border-gray-200">

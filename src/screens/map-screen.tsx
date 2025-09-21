@@ -191,8 +191,8 @@ export function MapScreen() {
           </View>
         </View>
         <View className="items-center">
-          <View className="w-8 h-8 rounded-full bg-red-600 items-center justify-center">
-            <Text className="text-white text-xs font-bold">🚌</Text>
+          <View className="w-8 h-8 rounded-full bg-gray-100 items-center justify-center border border-gray-200">
+            <Text className="text-gray-600 text-xs">🚌</Text>
           </View>
         </View>
       </View>

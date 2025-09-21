@@ -37,33 +37,78 @@ export function BusMarker({ bus, onPress }: BusMarkerProps) {
   };
 
   const CustomMarker = () => (
-    <View className="items-center">
+    <View style={{
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: 60,
+      height: 80,
+      paddingTop: 5,
+    }}>
       {/* Marker principal */}
       <View
-        className="w-12 h-12 rounded-full items-center justify-center shadow-xl border-2 border-white"
         style={{
+          width: 50,
+          height: 50,
+          borderRadius: 25,
           backgroundColor: getStatusColor(bus.status),
-          elevation: 8, // Sombra para Android
+          borderWidth: 3,
+          borderColor: 'white',
+          alignItems: 'center',
+          justifyContent: 'center',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 3 },
+          shadowOpacity: 0.3,
+          shadowRadius: 5,
+          elevation: 8,
         }}
       >
         <Ionicons
           name={getStatusIcon(bus.status) as any}
-          size={20}
+          size={26}
           color="white"
         />
       </View>
 
       {/* Número do ônibus */}
-      <View className="absolute -bottom-6 bg-white px-2 py-1 rounded-lg shadow-md border border-gray-200">
-        <Text className="text-xs font-bold text-gray-800">
+      <View
+        style={{
+          position: 'absolute',
+          top: 55,
+          backgroundColor: 'white',
+          paddingHorizontal: 6,
+          paddingVertical: 2,
+          borderRadius: 8,
+          borderWidth: 1,
+          borderColor: '#e5e7eb',
+          minWidth: 32,
+          alignItems: 'center',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.2,
+          shadowRadius: 2,
+          elevation: 3,
+        }}
+      >
+        <Text style={{
+          fontSize: 11,
+          fontWeight: 'bold',
+          color: '#374151',
+          textAlign: 'center',
+        }}>
           {bus.id.split('-')[0]}
         </Text>
       </View>
 
       {/* Indicador de ponto */}
       <View
-        className="w-2 h-2 rounded-full mt-1"
-        style={{ backgroundColor: getStatusColor(bus.status) }}
+        style={{
+          position: 'absolute',
+          top: 75,
+          width: 8,
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: getStatusColor(bus.status),
+        }}
       />
     </View>
   );
@@ -75,8 +120,12 @@ export function BusMarker({ bus, onPress }: BusMarkerProps) {
         longitude: bus.longitude,
       }}
       onPress={onPress}
-      anchor={{ x: 0.5, y: 0.8 }}
-      centerOffset={{ x: 0, y: -30 }}
+      anchor={{ x: 0.5, y: 0.9 }}
+      centerOffset={{ x: 0, y: -40 }}
+      style={{
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
     >
       <CustomMarker />
     </Marker>

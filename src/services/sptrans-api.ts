@@ -1,143 +1,132 @@
 import { API_CONFIG, ENDPOINTS } from '../constants/api';
-import type { BusPosition, BusLine, BusStatus, BusLineComplete } from '../types/bus';
+import type { BusPosition, BusStatus, BusLine } from '../types/bus';
 
-// API Response types from SPTrans documentation
-interface SPTransLineResponse {
-  cl: number;    // Internal line code
-  lc: boolean;   // Circular line indicator
-  lt: string;    // Line identifier part 1
-  tl: number;    // Line identifier part 2
-  sl: number;    // Direction (1 or 2)
-  tp: string;    // Primary terminal description
-  ts: string;    // Secondary terminal description
+// API Response types from your new gateway
+interface APIResponse<T> {
+  success: boolean;
+  data: T;
+  meta: {
+    cached: boolean;
+    responseTime: string;
+    timestamp: string;
+  };
 }
 
-interface SPTransBusResponse {
-  p: string;     // Vehicle prefix
-  a: boolean;    // Accessibility
-  ta: string;    // Last update timestamp (ISO 8601)
-  py: number;    // Latitude
-  px: number;    // Longitude
+interface LineSearchResponse {
+  lineId: number;
+  lineNumber: string;
+  displayName: string;
+}
+
+interface BusPositionResponse {
+  lineId: number;
+  referenceTime: string;
+  buses: {
+    vehicleId: string;
+    latitude: number;
+    longitude: number;
+    isAccessible: boolean;
+    lastUpdate: string;
+    status: string;
+  }[];
+  totalBuses: number;
 }
 
 export class SPTransAPISimple {
   private config = {
     baseURL: API_CONFIG.BASE_URL,
-    token: API_CONFIG.TOKEN,
     timeout: API_CONFIG.TIMEOUT,
     retryAttempts: API_CONFIG.RETRY_ATTEMPTS,
   };
 
-  private authenticated = false;
+  constructor() {
+    console.log(`🌐 API Gateway configured for: ${this.config.baseURL}`);
+  }
 
-  async authenticate(): Promise<boolean> {
+  async checkHealth(): Promise<boolean> {
     try {
-      console.log('🔐 Authenticating with SPTrans API...');
+      console.log('🔍 Checking API gateway health...');
 
-      const url = `${this.config.baseURL}${ENDPOINTS.LOGIN}?token=${this.config.token}`;
-
+      const url = `${this.config.baseURL}${ENDPOINTS.HEALTH}`;
       const response = await fetch(url, {
-        method: 'POST',
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const responseText = await response.text();
-      const isAuthenticated = responseText === 'true';
-
-      if (isAuthenticated) {
-        this.authenticated = true;
-        console.log('✅ SPTrans API authenticated successfully');
+      if (response.ok) {
+        console.log('✅ API gateway is healthy');
         return true;
       } else {
-        console.error('❌ SPTrans API returned false for authentication');
+        console.error('❌ API gateway health check failed:', response.status);
         return false;
       }
     } catch (error) {
-      console.error('❌ SPTrans API authentication failed:', error);
+      console.error('❌ API gateway health check failed:', error);
       return false;
     }
   }
 
   async fetchBusPositions(lineCode: string): Promise<BusPosition[]> {
-    console.log(`🚌 Attempting to use real SPTrans API for line ${lineCode}`);
-
-    await this.ensureAuthenticated();
+    console.log(`🚌 Fetching buses for line ${lineCode} via API gateway`);
 
     try {
-      const internalLineCode = await this.getInternalLineCode(lineCode);
-      const buses = await this.fetchBusPositionsByInternalCode(internalLineCode, lineCode);
+      // First, search for the line to get the lineId
+      const searchResponse = await this.makeGetRequest<APIResponse<LineSearchResponse[]>>(
+        `${this.config.baseURL}${ENDPOINTS.LINES_SEARCH}?query=${encodeURIComponent(lineCode)}`
+      );
 
+      if (!searchResponse.success || searchResponse.data.length === 0) {
+        throw new Error(`No lines found for ${lineCode}`);
+      }
+
+      const line = searchResponse.data[0];
+      console.log(`🔢 Using line ID: ${line.lineId} for line: ${line.lineNumber}`);
+
+      // Get bus positions using the lineId
+      const busesUrl = `${this.config.baseURL}${ENDPOINTS.LINES_BUSES.replace('{lineId}', line.lineId.toString())}`;
+      const busesResponse = await this.makeGetRequest<APIResponse<BusPositionResponse>>(busesUrl);
+
+      if (!busesResponse.success) {
+        throw new Error(`Failed to fetch buses for line ${lineCode}`);
+      }
+
+      const buses = busesResponse.data.buses.map(busData => this.transformBusData(busData, lineCode));
       console.log(`✅ Found ${buses.length} buses for line ${lineCode}`);
+
       return buses;
 
     } catch (error) {
       console.error(`❌ Failed to fetch buses for line ${lineCode}:`, error);
-
       throw error;
     }
   }
 
-  private async ensureAuthenticated(): Promise<void> {
-    if (!this.authenticated) {
-      const authSuccess = await this.authenticate();
-      if (!authSuccess) {
-        throw new Error('Failed to authenticate with SPTrans API');
-      }
-    }
-  }
-
-  private async getInternalLineCode(lineCode: string): Promise<number> {
-    console.log(`🔍 Searching for line ${lineCode}...`);
-
-    const url = `${this.config.baseURL}${ENDPOINTS.LINES}?termosBusca=${encodeURIComponent(lineCode)}`;
-    const response = await this.makeGetRequest<SPTransLineResponse[]>(url);
-
-    console.log(`📋 Found ${response.length} lines for "${lineCode}"`);
-
-    if (response.length === 0) {
-      throw new Error(`No lines found for ${lineCode}`);
-    }
-
-    // Try to find exact match first
-    const exactMatch = response.find(line => {
-      const publicLineCode = `${line.lt}-${line.tl}`.replace(/^-|-$/g, '');
-      return publicLineCode === lineCode;
-    });
-
-    const selectedLine = exactMatch || response[0];
-    const internalLineCode = selectedLine.cl;
-    const publicLineCode = `${selectedLine.lt}-${selectedLine.tl}`.replace(/^-|-$/g, '');
-
-    console.log(`🔢 Using internal line code: ${internalLineCode} for public line: ${publicLineCode}`);
-
-    return internalLineCode;
-  }
-
-  private async fetchBusPositionsByInternalCode(internalLineCode: number, originalLineCode: string): Promise<BusPosition[]> {
-    const url = `${this.config.baseURL}${ENDPOINTS.POSITIONS}?codigoLinha=${internalLineCode}`;
-    const response = await this.makeGetRequest<{ vs: SPTransBusResponse[] }>(url);
-
-    const buses = response.vs || [];
-    return buses.map(busData => this.transformBusData(busData, originalLineCode));
-  }
-
-  private transformBusData(busData: SPTransBusResponse, lineCode: string): BusPosition {
+  private transformBusData(busData: BusPositionResponse['buses'][0], lineCode: string): BusPosition {
     return {
-      id: `${busData.p}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
+      id: `${busData.vehicleId}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
       lineCode,
-      latitude: busData.py,
-      longitude: busData.px,
-      status: this.determineBusStatus(busData),
-      lastUpdate: new Date(busData.ta),
-      speed: 0, // Not provided by SPTrans API
-      direction: 0, // Not provided by SPTrans API
+      latitude: busData.latitude,
+      longitude: busData.longitude,
+      status: this.mapBusStatus(busData.status),
+      lastUpdate: new Date(busData.lastUpdate),
+      speed: 0, // Not provided by gateway
+      direction: 0, // Not provided by gateway
     };
+  }
+
+  private mapBusStatus(status: string): BusStatus {
+    switch (status.toLowerCase()) {
+      case 'active':
+        return 'moving';
+      case 'inactive':
+        return 'offline';
+      case 'stopped':
+        return 'stopped';
+      default:
+        return 'moving';
+    }
   }
 
   private async makeGetRequest<T>(url: string): Promise<T> {
@@ -153,114 +142,47 @@ export class SPTransAPISimple {
     return response.json();
   }
 
-
-  async fetchBusLines(searchTerm?: string): Promise<BusLine[]> {
-    await this.ensureAuthenticated();
-
-    try {
-      const url = searchTerm
-        ? `${this.config.baseURL}${ENDPOINTS.LINES}?termosBusca=${encodeURIComponent(searchTerm)}`
-        : `${this.config.baseURL}${ENDPOINTS.LINES}`;
-
-      const linesData = await this.makeGetRequest<SPTransLineResponse[]>(url);
-
-      return linesData.map(lineData => this.transformLineData(lineData));
-    } catch (error) {
-      console.error('Failed to fetch bus lines:', error);
-      console.log(`❌ API failed, returning empty results`);
-      return [];
-    }
-  }
-
   async searchBusLines(searchTerm: string): Promise<BusLine[]> {
     if (!searchTerm.trim()) {
       return [];
     }
 
-    // Normalize search term for API compatibility
-    const normalizedTerm = this.normalizeSearchTerm(searchTerm);
-
-    await this.ensureAuthenticated();
-
     try {
-      const url = `${this.config.baseURL}${ENDPOINTS.LINES}?termosBusca=${encodeURIComponent(normalizedTerm)}`;
-      const linesData = await this.makeGetRequest<SPTransLineResponse[]>(url);
+      const url = `${this.config.baseURL}${ENDPOINTS.LINES_SEARCH}?query=${encodeURIComponent(searchTerm.trim())}`;
+      const response = await this.makeGetRequest<APIResponse<LineSearchResponse[]>>(url);
 
-      // Transform each line individually (keep directions separate)
-      const transformedLines = linesData.map(lineData => this.transformLineData(lineData));
+      if (!response.success) {
+        return [];
+      }
 
-      return transformedLines;
+      return response.data.map(lineData => this.transformLineData(lineData));
     } catch (error) {
-      console.error(`API Error for search "${normalizedTerm}":`, error);
+      console.error(`❌ Search error for "${searchTerm}":`, error);
       return [];
     }
   }
 
-  private normalizeSearchTerm(term: string): string {
-    const trimmed = term.trim().toUpperCase();
-
-    // Se tem 6+ caracteres e parece ser código completo sem hífen (ex: 682410, 701U10)
-    if (trimmed.length >= 6 && /^[0-9]{3,4}[A-Z]?[0-9]{2}$/.test(trimmed)) {
-      // Adicionar hífen antes dos últimos 2 dígitos: 682410 → 6824-10
-      const match = trimmed.match(/^([0-9]{3,4}[A-Z]?)([0-9]{2})$/);
-      if (match) {
-        return `${match[1]}-${match[2]}`;
-      }
-    }
-
-    // Caso contrário, usar termo original (códigos parciais como "682", "6824", etc.)
-    return trimmed;
-  }
-
-
-
-  private transformLineData(lineData: SPTransLineResponse): BusLine {
-    const lineNumber = `${lineData.lt}-${lineData.tl}`.replace(/^-|-$/g, '');
-
-    // Show direction clearly: "Ida: Terminal" or "Volta: Terminal"
-    let directionLabel = '';
-    let terminalName = '';
-
-    if (lineData.sl === 1) {
-      directionLabel = 'Ida';
-      terminalName = lineData.tp || 'Terminal desconhecido';
-    } else {
-      directionLabel = 'Volta';
-      terminalName = lineData.ts || lineData.tp || 'Terminal desconhecido';
-    }
-
-    const displayName = `${directionLabel}: ${terminalName}`;
-
+  private transformLineData(lineData: LineSearchResponse): BusLine {
     return {
-      code: lineNumber,
-      name: displayName,
-      direction: directionLabel,
+      code: lineData.lineNumber,
+      name: lineData.displayName,
+      direction: lineData.displayName.includes('→') ? 'Ida' : 'Volta',
       active: true,
     };
   }
 
 
-  private determineBusStatus(busData: any): BusStatus {
-    const lastUpdate = new Date(busData.ta);
-    const now = new Date();
-    const timeDiff = now.getTime() - lastUpdate.getTime();
 
-    if (timeDiff > 10 * 60 * 1000) {
-      return 'offline';
-    }
 
-    return 'moving';
-  }
-
-  checkConnection(): Promise<boolean> {
-    return Promise.resolve(true);
+  async checkConnection(): Promise<boolean> {
+    return await this.checkHealth();
   }
 
   getAuthStatus(): boolean {
-    return this.authenticated;
+    return true; // No authentication needed for your API gateway
   }
 
   invalidateAuth(): void {
-    this.authenticated = false;
+    // No-op: No authentication to invalidate
   }
 }

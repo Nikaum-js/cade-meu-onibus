@@ -1,47 +1,46 @@
 import { BusPosition, BusLine } from './bus';
 
-export interface OlhoVivoConfig {
+// Configuration for your API gateway
+export interface APIGatewayConfig {
   baseURL: string;
-  token: string;
   timeout: number;
   retryAttempts: number;
 }
 
-export interface AuthResult {
-  success: boolean;
-  cookie?: string;
-  error?: string;
-}
-
+// Standard response format from your API gateway
 export interface APIResponse<T> {
   success: boolean;
-  data?: T;
-  error?: string;
-  timestamp: Date;
+  data: T;
+  meta: {
+    cached: boolean;
+    responseTime: string;
+    timestamp: string;
+  };
+}
+
+// Response types from your API gateway endpoints
+export interface LineSearchResponse {
+  lineId: number;
+  lineNumber: string;
+  serviceType: string;
+  direction: string;
+  isCircular: boolean;
+  fromTerminal: string;
+  toTerminal: string;
+  displayName: string;
 }
 
 export interface BusPositionResponse {
-  vs: Array<{
-    p: number; // código da linha
-    a: boolean; // acessível
-    ta: string; // horário última atualização
-    py: number; // latitude
-    px: number; // longitude
-  }>;
+  lineId: number;
+  referenceTime: string;
+  buses: {
+    vehicleId: string;
+    latitude: number;
+    longitude: number;
+    isAccessible: boolean;
+    lastUpdate: string;
+    status: string;
+  }[];
+  totalBuses: number;
 }
 
-export interface BusLineResponse {
-  l: Array<{
-    cl: number; // código da linha
-    lc: boolean; // circular
-    lt: number; // tipo de linha
-    tl: number; // sentido
-    tp: string; // descrição tipo
-    ts: string; // descrição sentido
-  }>;
-}
-
-export interface SearchSuggestion {
-  lineCode: string;
-  lineName: string;
-}

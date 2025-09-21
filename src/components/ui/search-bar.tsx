@@ -9,14 +9,8 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import debounce from 'lodash.debounce';
-import { searchSchema, type SearchFormData } from '../../schemas/search';
 import { useBusStore } from '../../stores/bus-store';
-import { useSearchHistory } from '../../hooks/use-search-history';
-import { SearchHistory } from './search-history';
-import type { SearchSuggestion } from '../../types/api';
+import type { BusLine } from '../../types/bus';
 
 interface SearchBarProps {
   onSearch: (lineCode: string) => void;
@@ -29,39 +23,21 @@ export function SearchBar({
   placeholder = 'Digite o código',
   autoFocus = false,
 }: SearchBarProps) {
+  const [query, setQuery] = useState('');
   const [isFocused, setIsFocused] = useState(false);
 
-  const { getSuggestionsForSearch, searchLines } = useBusStore();
-  const { addSearch } = useSearchHistory();
+  const { lines, searchLines, clearLines } = useBusStore();
 
-  const {
-    control,
-    handleSubmit,
-    watch,
-    setValue,
-    setFocus,
-    reset,
-    formState: { errors, isValid },
-  } = useForm<SearchFormData>({
-    resolver: zodResolver(searchSchema),
-    mode: 'onChange',
-    defaultValues: {
-      lineCode: '',
-    },
-  });
-
-  const watchedLineCode = watch('lineCode');
-  const showSuggestions = isFocused && watchedLineCode.length > 0;
-  const showHistory = isFocused && watchedLineCode.length === 0;
-
-  // Create debounced search function for autocomplete (only for dropdown suggestions)
+  // Create debounced search function for autocomplete
   const debouncedSearch = useCallback(
     debounce((searchTerm: string) => {
       if (searchTerm.trim().length >= 2) {
         searchLines(searchTerm);
+      } else {
+        clearLines();
       }
     }, 300),
-    [searchLines]
+    [searchLines, clearLines]
   );
 
   // Cleanup debounced function on unmount
@@ -71,30 +47,26 @@ export function SearchBar({
     };
   }, [debouncedSearch]);
 
-  // Watch for changes in line code to trigger debounced search for autocomplete
+  // Watch for changes in query to trigger debounced search
   useEffect(() => {
-    if (isFocused && watchedLineCode.trim().length >= 2) {
-      // Use original input for API search (não normalizar aqui)
-      debouncedSearch(watchedLineCode);
+    if (isFocused) {
+      debouncedSearch(query);
     }
-  }, [watchedLineCode, debouncedSearch, isFocused]);
+  }, [query, debouncedSearch, isFocused]);
 
-  const suggestions = getSuggestionsForSearch(watchedLineCode);
+  const showSuggestions = isFocused && query.length > 0 && lines.length > 0;
 
-  const onSubmit = (data: SearchFormData) => {
-    // Add to search history
-    addSearch(data.lineCode);
-
-    // Execute search
-    onSearch(data.lineCode);
-
-    // Close dropdowns and dismiss keyboard
-    hideDropdowns();
-    Keyboard.dismiss();
+  const onSubmit = () => {
+    if (query.trim()) {
+      onSearch(query.trim());
+      hideDropdowns();
+      Keyboard.dismiss();
+    }
   };
 
   const hideDropdowns = () => {
     setIsFocused(false);
+    clearLines();
   };
 
   const handleFocus = () => {
@@ -112,25 +84,19 @@ export function SearchBar({
     hideDropdowns();
   };
 
-  const handleSuggestionPress = (suggestion: SearchSuggestion) => {
-    setValue('lineCode', suggestion.lineCode, { shouldValidate: true });
+  const handleSuggestionPress = (line: BusLine) => {
+    setQuery(line.code);
     setIsFocused(false);
-    handleSubmit(onSubmit)();
+    onSearch(line.code);
   };
 
   const handleClear = () => {
-    reset();
+    setQuery('');
     setIsFocused(true);
-    setFocus('lineCode');
+    clearLines();
   };
 
-  const handleHistorySelect = (lineCode: string) => {
-    setValue('lineCode', lineCode, { shouldValidate: true });
-    setIsFocused(false);
-    handleSubmit(onSubmit)();
-  };
-
-  const renderSuggestion = ({ item }: { item: SearchSuggestion }) => (
+  const renderSuggestion = ({ item }: { item: BusLine }) => (
     <TouchableOpacity
       className="px-5 py-4 border-b border-gray-50"
       onPress={() => handleSuggestionPress(item)}
@@ -141,9 +107,9 @@ export function SearchBar({
           <Ionicons name="bus" size={18} color="#FFFFFF" />
         </View>
         <View className="flex-1">
-          <Text className="text-lg font-bold text-gray-800">{item.lineCode}</Text>
+          <Text className="text-lg font-bold text-gray-800">{item.code}</Text>
           <Text className="text-sm text-gray-600 mt-1 font-medium" numberOfLines={1}>
-            {item.lineName}
+            {item.name}
           </Text>
         </View>
         <View className="opacity-60">
@@ -155,97 +121,86 @@ export function SearchBar({
 
   return (
     <>
-      {(showSuggestions || showHistory) && (
+      {showSuggestions && (
         <TouchableWithoutFeedback onPress={handleOutsidePress}>
           <View className="absolute inset-0 z-40" />
         </TouchableWithoutFeedback>
       )}
 
       <View className="relative z-50">
-        <Controller
-          control={control}
-          name="lineCode"
-          render={({ field: { onChange, value, onBlur, ref } }) => (
-            <View
-              className={`flex-row items-center bg-gray-100 rounded-xl px-4 py-3 shadow-sm ${
-                errors.lineCode ? 'border-2 border-red-500' : 'border border-transparent'
-              }`}
+        <View className="flex-row items-center bg-gray-100 rounded-xl px-4 py-3 shadow-sm border border-transparent">
+          <View className="mr-3">
+            <Ionicons name="search" size={20} color="#6B7280" />
+          </View>
+
+          <TextInput
+            className="flex-1 text-base text-gray-800 py-1"
+            value={query}
+            onChangeText={setQuery}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            placeholder={placeholder}
+            placeholderTextColor="#9CA3AF"
+            autoCapitalize="characters"
+            autoCorrect={false}
+            autoFocus={autoFocus}
+            returnKeyType="search"
+            onSubmitEditing={onSubmit}
+          />
+
+          {query.length > 0 && (
+            <TouchableOpacity
+              className="ml-2"
+              onPress={handleClear}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <View className="mr-3">
-                <Ionicons name="search" size={20} color="#6B7280" />
-              </View>
-
-              <TextInput
-                ref={ref}
-                className="flex-1 text-base text-gray-800 py-1"
-                value={value}
-                onChangeText={onChange}
-                onFocus={handleFocus}
-                onBlur={() => {
-                  onBlur();
-                  handleBlur();
-                }}
-                placeholder={placeholder}
-                placeholderTextColor="#9CA3AF"
-                autoCapitalize="characters"
-                autoCorrect={false}
-                autoFocus={autoFocus}
-                returnKeyType="search"
-                onSubmitEditing={handleSubmit(onSubmit)}
-              />
-
-              {value.length > 0 && (
-                <TouchableOpacity
-                  className="ml-2"
-                  onPress={handleClear}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="close-circle" size={20} color="#6B7280" />
-                </TouchableOpacity>
-              )}
-
-              <TouchableOpacity
-                className="ml-2 p-1"
-                onPress={handleSubmit(onSubmit)}
-                disabled={!value.trim() || !isValid}
-              >
-                <Ionicons
-                  name="arrow-forward"
-                  size={20}
-                  color={value.trim() && isValid ? '#1E40AF' : '#6B7280'}
-                />
-              </TouchableOpacity>
-            </View>
+              <Ionicons name="close-circle" size={20} color="#6B7280" />
+            </TouchableOpacity>
           )}
-        />
 
-        {errors.lineCode && (
-          <Text className="text-red-600 text-xs mt-2 ml-4">
-            {errors.lineCode.message}
-          </Text>
-        )}
+          <TouchableOpacity
+            className="ml-2 p-1"
+            onPress={onSubmit}
+            disabled={!query.trim()}
+          >
+            <Ionicons
+              name="arrow-forward"
+              size={20}
+              color={query.trim() ? '#1E40AF' : '#6B7280'}
+            />
+          </TouchableOpacity>
+        </View>
 
-        {showSuggestions && suggestions.length > 0 && (
+        {showSuggestions && (
           <View className="absolute top-full left-0 right-0 bg-white rounded-2xl mt-2 max-h-72 shadow-xl border border-gray-100 z-50">
             <FlatList
-              data={suggestions}
+              data={lines.slice(0, 6)}
               renderItem={renderSuggestion}
-              keyExtractor={(item, index) => `${item.lineCode}-${index}`}
+              keyExtractor={(item, index) => `${item.code}-${item.direction}-${index}`}
               className="max-h-72"
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             />
           </View>
         )}
-
-        {showHistory && (
-          <SearchHistory
-            visible={showHistory}
-            onSelectHistory={handleHistorySelect}
-          />
-        )}
       </View>
     </>
   );
 }
 
+// Simple debounce implementation
+function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): T & { cancel: () => void } {
+  let timeout: NodeJS.Timeout;
+
+  const debounced = (...args: Parameters<T>) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+
+  debounced.cancel = () => clearTimeout(timeout);
+
+  return debounced as T & { cancel: () => void };
+}

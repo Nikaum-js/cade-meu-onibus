@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { SPTransAPISimple } from '../services/sptrans-api';
 import type { BusPosition, BusLine } from '../types/bus';
-import type { SearchSuggestion } from '../types/api';
 import { API_CONFIG } from '../constants/api';
 
 interface BusStore {
@@ -13,19 +12,17 @@ interface BusStore {
   error: string | null;
   lastUpdate: Date | null;
   refreshInterval: NodeJS.Timeout | null;
-  suggestions: SearchSuggestion[];
 
   // Actions
   fetchBuses: (lineCode: string) => Promise<void>;
-  fetchLines: (searchTerm?: string) => Promise<void>;
   searchLines: (searchTerm: string) => Promise<void>;
   updateBusPosition: (busId: string, position: BusPosition) => void;
   selectLine: (lineCode: string) => void;
   clearError: () => void;
   clearBuses: () => void;
+  clearLines: () => void;
   startAutoRefresh: (lineCode: string) => void;
   stopAutoRefresh: () => void;
-  getSuggestionsForSearch: (query: string) => SearchSuggestion[];
 }
 
 const sptransAPI = new SPTransAPISimple();
@@ -39,7 +36,6 @@ export const useBusStore = create<BusStore>((set, get) => ({
   error: null,
   lastUpdate: null,
   refreshInterval: null,
-  suggestions: [],
 
   fetchBuses: async (lineCode: string) => {
     set({ isLoading: true, error: null });
@@ -62,22 +58,6 @@ export const useBusStore = create<BusStore>((set, get) => ({
     }
   },
 
-  fetchLines: async (searchTerm?: string) => {
-    set({ isLoading: true, error: null });
-
-    try {
-      const lines = await sptransAPI.fetchBusLines(searchTerm);
-      set({
-        lines,
-        isLoading: false,
-      });
-    } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : 'Failed to fetch lines',
-        isLoading: false,
-      });
-    }
-  },
 
   searchLines: async (searchTerm: string) => {
     if (!searchTerm.trim()) {
@@ -86,7 +66,7 @@ export const useBusStore = create<BusStore>((set, get) => ({
     }
 
     try {
-      const lines = await sptransAPI.searchBusLines(searchTerm);
+      const lines = await sptransAPI.searchBusLines(searchTerm.trim());
       set({ lines });
     } catch (error) {
       console.error(`Failed to search lines for "${searchTerm}":`, error);
@@ -113,6 +93,10 @@ export const useBusStore = create<BusStore>((set, get) => ({
     set({ buses: new Map(), selectedLine: null, lastUpdate: null });
   },
 
+  clearLines: () => {
+    set({ lines: [] });
+  },
+
   startAutoRefresh: (lineCode: string) => {
     const { stopAutoRefresh, fetchBuses } = get();
 
@@ -135,47 +119,4 @@ export const useBusStore = create<BusStore>((set, get) => ({
     }
   },
 
-  getSuggestionsForSearch: (query: string): SearchSuggestion[] => {
-    const { lines } = get();
-
-    if (!query.trim()) {
-      return [];
-    }
-
-    const queryLower = query.toLowerCase();
-    const normalizedQuery = normalizeQueryForMatching(queryLower);
-
-    // Filter lines that match either original or normalized query
-    const matchingLines = lines
-      .filter(line => {
-        const codeMatch = line.code.toLowerCase().includes(queryLower) ||
-                         line.code.toLowerCase().includes(normalizedQuery);
-        const nameMatch = line.name.toLowerCase().includes(queryLower);
-        return codeMatch || nameMatch;
-      })
-      .map(line => ({
-        lineCode: line.code,
-        lineName: line.name,
-      }))
-      .slice(0, 8);
-
-    return matchingLines;
-  },
 }));
-
-// Helper function to normalize query for matching
-function normalizeQueryForMatching(query: string): string {
-  const trimmed = query.trim();
-
-  // Se tem 6+ caracteres e parece ser código completo sem hífen (ex: 682410, 701u10)
-  if (trimmed.length >= 6 && /^[0-9]{3,4}[a-z]?[0-9]{2}$/.test(trimmed)) {
-    // Adicionar hífen antes dos últimos 2 dígitos: 682410 → 6824-10
-    const match = trimmed.match(/^([0-9]{3,4}[a-z]?)([0-9]{2})$/);
-    if (match) {
-      return `${match[1]}-${match[2]}`;
-    }
-  }
-
-  // Caso contrário, retornar termo original
-  return trimmed;
-}

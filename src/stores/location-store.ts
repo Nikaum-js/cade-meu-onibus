@@ -76,8 +76,8 @@ export const useLocationStore = create<LocationStore>((set, get) => ({
 
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.BestForNavigation,
-        maximumAge: 10000, // Allow cached location up to 10 seconds old
-        timeout: 15000, // Wait up to 15 seconds
+        timeInterval: 10000, // Allow cached location up to 10 seconds old
+        // timeout: 15000, // Wait up to 15 seconds - not supported in this API
       });
 
       const userLocation: UserLocation = {

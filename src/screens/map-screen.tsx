@@ -6,6 +6,7 @@ import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import { SearchBar } from '../components/ui/search-bar';
 import { LoadingSpinner } from '../components/ui/loading-spinner';
 import { ErrorMessage } from '../components/ui/error-message';
+import { BusMarker } from '../components/maps/bus-marker';
 
 import { useBusStore } from '../stores/bus-store';
 import { useLocationStore } from '../stores/location-store';
@@ -163,17 +164,16 @@ export function MapScreen() {
   // Memoized bus markers
   const busMarkers = useMemo(() => {
     return Array.from(buses.values()).map((bus) => (
-      <Marker
+      <BusMarker
         key={bus.id}
-        coordinate={{
-          latitude: bus.latitude,
-          longitude: bus.longitude,
+        bus={bus}
+        onPress={() => {
+          // TODO: Implementar modal de detalhes do ônibus
+          console.log(`Ônibus ${bus.id} pressionado`);
         }}
-        title={`Ônibus ${bus.id.split('-')[0]}`}
-        description={`Linha ${bus.lineCode} - ${getStatusLabel(bus.status)}`}
       />
     ));
-  }, [buses, getStatusLabel]);
+  }, [buses]);
 
   // Memoized bus list for overlay
   const busListItems = useMemo(() => {
@@ -215,8 +215,8 @@ export function MapScreen() {
           {busMarkers}
         </MapView>
 
-        {/* Bus List Overlay (if needed) */}
-        {buses.size > 0 && (
+        {/* Bus List Overlay */}
+        {selectedLine && buses.size > 0 && (
           <View className="absolute bottom-5 left-5 right-5 bg-white rounded-2xl p-4 shadow-xl max-h-48">
             <Text className="text-lg font-bold text-gray-800 mb-3 text-center">
               Linha {selectedLine} - {buses.size} ônibus
@@ -229,6 +229,28 @@ export function MapScreen() {
                 </Text>
               )}
             </ScrollView>
+          </View>
+        )}
+
+        {/* No Buses Found Message */}
+        {selectedLine && buses.size === 0 && !isLoading && !error && (
+          <View className="absolute bottom-5 left-5 right-5 bg-white rounded-2xl p-6 shadow-xl">
+            <View className="items-center">
+              <View className="w-16 h-16 rounded-full bg-gray-100 items-center justify-center mb-4">
+                <Text className="text-2xl">🚌</Text>
+              </View>
+              <Text className="text-lg font-bold text-gray-800 text-center mb-2">
+                Nenhum ônibus encontrado
+              </Text>
+              <Text className="text-sm text-gray-600 text-center mb-4">
+                Não encontramos ônibus operando na linha {selectedLine} no momento
+              </Text>
+              <View className="flex-row items-center justify-center bg-blue-50 px-4 py-2 rounded-xl">
+                <Text className="text-xs text-blue-600 text-center">
+                  💡 Tente buscar novamente em alguns minutos
+                </Text>
+              </View>
+            </View>
           </View>
         )}
       </View>

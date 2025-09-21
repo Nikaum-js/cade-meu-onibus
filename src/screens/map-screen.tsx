@@ -136,9 +136,9 @@ export function MapScreen() {
   const getStatusColorClass = useCallback((status: string) => {
     switch (status) {
       case 'moving':
-        return 'bg-success'; // Verde para ônibus em operação
+        return 'bg-green-500'; // Verde para ônibus em movimento
       case 'stopped':
-        return 'bg-warning'; // Amarelo para atrasos
+        return 'bg-amber-500'; // Amarelo para ônibus parado
       case 'offline':
         return 'bg-gray-400'; // Cinza para offline
       default:
@@ -177,12 +177,24 @@ export function MapScreen() {
 
   // Memoized bus list for overlay
   const busListItems = useMemo(() => {
-    return Array.from(buses.values()).slice(0, 3).map((bus) => (
-      <View key={bus.id} className="flex-row items-center py-2">
-        <View className={`w-3 h-3 rounded-full mr-3 ${getStatusColorClass(bus.status)}`} />
-        <Text className="text-sm font-medium text-gray-700 flex-1">
-          {bus.id.split('-')[0]} - {getStatusLabel(bus.status)}
-        </Text>
+    return Array.from(buses.values()).slice(0, 3).map((bus, index) => (
+      <View key={bus.id} className="flex-row items-center p-3 bg-gray-50 rounded-xl mb-2 border border-gray-100">
+        <View className="flex-row items-center flex-1">
+          <View className={`w-4 h-4 rounded-full mr-4 ${getStatusColorClass(bus.status)} shadow-sm`} />
+          <View className="flex-1">
+            <Text className="text-base font-bold text-gray-800">
+              Ônibus {bus.id.split('-')[0]}
+            </Text>
+            <Text className="text-sm text-gray-600 font-medium">
+              {getStatusLabel(bus.status)}
+            </Text>
+          </View>
+        </View>
+        <View className="items-center">
+          <View className="w-8 h-8 rounded-full bg-red-600 items-center justify-center">
+            <Text className="text-white text-xs font-bold">🚌</Text>
+          </View>
+        </View>
       </View>
     ));
   }, [buses, getStatusColorClass, getStatusLabel]);
@@ -217,18 +229,40 @@ export function MapScreen() {
 
         {/* Bus List Overlay */}
         {selectedLine && buses.size > 0 && (
-          <View className="absolute bottom-5 left-5 right-5 bg-white rounded-2xl p-4 shadow-xl max-h-48">
-            <Text className="text-lg font-bold text-gray-800 mb-3 text-center">
-              Linha {selectedLine} - {buses.size} ônibus
-            </Text>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {busListItems}
-              {buses.size > 3 && (
-                <Text className="text-xs text-gray-500 text-center mt-2">
-                  +{buses.size - 3} ônibus no mapa
-                </Text>
-              )}
-            </ScrollView>
+          <View className="absolute bottom-5 left-5 right-5 bg-white rounded-3xl shadow-2xl max-h-80 border border-gray-50">
+            {/* Header */}
+            <View className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-4 rounded-t-3xl">
+              <View className="flex-row items-center justify-between">
+                <View className="flex-1">
+                  <Text className="text-white text-lg font-bold">
+                    Linha {selectedLine}
+                  </Text>
+                  <Text className="text-red-100 text-sm font-medium">
+                    {buses.size} ônibus {buses.size === 1 ? 'operando' : 'operando'}
+                  </Text>
+                </View>
+                <View className="w-10 h-10 rounded-full bg-white/20 items-center justify-center">
+                  <Text className="text-white text-lg">🚌</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Bus List */}
+            <View className="p-4">
+              <ScrollView showsVerticalScrollIndicator={false} className="max-h-44">
+                {busListItems}
+                {buses.size > 3 && (
+                  <View className="items-center mt-3 p-3 bg-blue-50 rounded-xl border border-blue-100">
+                    <Text className="text-blue-700 text-sm font-semibold">
+                      +{buses.size - 3} ônibus adicional{buses.size - 3 > 1 ? 'is' : ''} no mapa
+                    </Text>
+                    <Text className="text-blue-600 text-xs mt-1">
+                      Amplie o mapa para ver todos
+                    </Text>
+                  </View>
+                )}
+              </ScrollView>
+            </View>
           </View>
         )}
 

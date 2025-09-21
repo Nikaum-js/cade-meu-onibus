@@ -239,8 +239,12 @@ export class SPTransAPISimple {
   }
 
   private transformLineData(lineData: LineSearchResponse): BusLine {
+    // Extract complete line code from displayName (e.g., "6824-10 - Terminal Lapa → Metrô Santana")
+    const lineCodeMatch = lineData.displayName.match(/^(\d+(?:-\d+)?)/);
+    const completeLineCode = lineCodeMatch ? lineCodeMatch[1] : lineData.lineNumber;
+
     return {
-      code: lineData.lineNumber,
+      code: completeLineCode,
       name: lineData.displayName,
       direction: lineData.displayName.includes('→') ? 'Ida' : 'Volta',
       active: true,

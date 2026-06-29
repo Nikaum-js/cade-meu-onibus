@@ -6,7 +6,10 @@ node_modules/
 # Expo
 .expo/
 dist/
+
+# Claude Code (nunca commitar settings locais)
 .claude/
+.claude/settings.local.json
 web-build/
 expo-env.d.ts
 

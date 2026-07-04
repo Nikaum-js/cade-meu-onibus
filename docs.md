@@ -173,19 +173,20 @@ info: '#3b82f6'     // Azul para rotas e informações
 }
 ```
 
-**API Key configurada no `app.json`:**
+**API Key configurada via `GOOGLE_MAPS_API_KEY` em `.env`** (lida em `app.config.js`,
+nunca hardcoded em `app.json`):
 ```json
 {
   "expo": {
     "ios": {
       "config": {
-        "googleMapsApiKey": "***REMOVED-LEAKED-KEY***"
+        "googleMapsApiKey": "<GOOGLE_MAPS_API_KEY>"
       }
     },
     "android": {
       "config": {
         "googleMaps": {
-          "apiKey": "***REMOVED-LEAKED-KEY***"
+          "apiKey": "<GOOGLE_MAPS_API_KEY>"
         }
       }
     }

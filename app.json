@@ -19,7 +19,7 @@
         "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to location to show nearby buses and your position on the map."
       },
       "config": {
-        "googleMapsApiKey": "***REMOVED-LEAKED-KEY***"
+        "googleMapsApiKey": ""
       }
     },
     "android": {
@@ -36,7 +36,7 @@
       ],
       "config": {
         "googleMaps": {
-          "apiKey": "***REMOVED-LEAKED-KEY***"
+          "apiKey": ""
         }
       }
     },
